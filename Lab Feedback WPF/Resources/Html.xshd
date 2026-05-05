@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SyntaxDefinition name="HTML" extensions=".html;.htm"
+    xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+
+    <Color name="Tag"        foreground="#F92672"/>
+    <Color name="Attribute"  foreground="#A6E22E"/>
+    <Color name="Value"      foreground="#E6DB74"/>
+    <Color name="Comment"    foreground="#75715E" fontStyle="italic"/>
+    <Color name="Entity"     foreground="#AE81FF"/>
+    <Color name="DocType"    foreground="#75715E" fontStyle="italic"/>
+
+    <RuleSet>
+
+        <!-- Comments -->
+        <Span color="Comment" multiline="true">
+            <Begin>&lt;!--</Begin>
+            <End>--&gt;</End>
+        </Span>
+
+        <!-- DOCTYPE -->
+        <Span color="DocType" multiline="false">
+            <Begin>&lt;!</Begin>
+            <End>&gt;</End>
+        </Span>
+
+        <!-- Tags with attributes -->
+        <Span color="Tag" multiline="true">
+            <Begin>&lt;/?</Begin>
+            <End>/?&gt;</End>
+            <RuleSet>
+                <!-- Attribute values double quoted -->
+                <Span color="Value">
+                    <Begin>"</Begin>
+                    <End>"</End>
+                </Span>
+                <!-- Attribute values single quoted -->
+                <Span color="Value">
+                    <Begin>'</Begin>
+                    <End>'</End>
+                </Span>
+                <!-- Attribute names -->
+                <Rule color="Attribute">\b\w[\w-]*(?=\s*=)</Rule>
+            </RuleSet>
+        </Span>
+
+        <!-- HTML entities -->
+        <Rule color="Entity">&amp;\w+;</Rule>
+        <Rule color="Entity">&amp;#[0-9]+;</Rule>
+        <Rule color="Entity">&amp;#x[0-9a-fA-F]+;</Rule>
+
+    </RuleSet>
+</SyntaxDefinition>

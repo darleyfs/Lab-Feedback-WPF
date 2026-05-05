@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SyntaxDefinition name="C++" extensions=".cpp;.h;.hpp"
+    xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+
+  <!-- Colors matching MonokaiColors.Dark -->
+  <Color name="Comment"      foreground="#75715E" fontStyle="italic"/>
+  <Color name="String"       foreground="#FFD866"/>
+  <Color name="CharLiteral"  foreground="#FF6188"/>
+  <Color name="Keyword"      foreground="#F92672"/>
+  <Color name="Keyword2"     foreground="#F92672" fontStyle="italic"/>
+  <Color name="Type"         foreground="#78DCE8" fontStyle="italic"/>
+  <Color name="Number"       foreground="#AE81FF"/>
+  <Color name="Preprocessor" foreground="#75715E"/>
+  <Color name="Operator"     foreground="#F92672"/>
+  <Color name="Structure"    foreground="#75715E"/>
+  <Color name="Method"       foreground="#A6E22E"/>
+  <Color name="Return"       foreground="#AE81FF"/>
+  <Color name="Violation"    foreground="#FF0000" fontWeight="bold"/>
+  <Color name="Namespace"    foreground="#78DCE8"/>
+  <Color name="Parameter"  foreground="#FF8F20"/>
+  <Color name="Hyperlink"  foreground="#66D8EC"/>
+
+  <RuleSet>
+
+    <!-- Multi-line comments -->
+    <Span color="Comment" multiline="true">
+      <Begin>/\*</Begin>
+      <End>\*/</End>
+    </Span>
+
+    <!-- Single-line comments -->
+    <Span color="Comment" multiline="false">
+      <Begin>//</Begin>
+      <End>$</End>
+    </Span>
+
+    <!-- Double-quoted strings -->
+    <Span color="String" multiline="false">
+      <Begin>"</Begin>
+      <End>"</End>
+      <RuleSet>
+        <Span>
+          <Begin>\\</Begin>
+          <End>.</End>
+        </Span>
+      </RuleSet>
+    </Span>
+
+    <!-- Single-quoted char literals -->
+    <Span color="CharLiteral" multiline="false">
+      <Begin>'</Begin>
+      <End>'</End>
+    </Span>
+
+    <!-- Preprocessor directives -->
+    <Rule color="Preprocessor">^\s*\#\s*(include|define|ifdef|ifndef|endif|pragma|undef|if|elif|else)\b.*$</Rule>
+
+    <!-- Violation flags (checked before keywords so they take priority) -->
+    <Keywords color="Violation">
+      <Word>auto</Word>
+      <Word>goto</Word>
+      <Word>continue</Word>
+      <Word>try</Word>
+      <Word>catch</Word>
+      <Word>iterator</Word>
+      <Word>size_t</Word>
+      <Word>var</Word>
+      <Word>const</Word>
+    </Keywords>
+
+    <!-- return gets its own color (purple) -->
+    <Keywords color="Return">
+      <Word>return</Word>
+    </Keywords>
+
+    <!-- Primary keywords (pink) -->
+    <Keywords color="Keyword">
+      <Word>for</Word>
+      <Word>each</Word>
+      <Word>if</Word>
+      <Word>else</Word>
+      <Word>switch</Word>
+      <Word>case</Word>
+      <Word>do</Word>
+      <Word>while</Word>
+      <Word>break</Word>
+      <Word>default</Word>
+      <Word>new</Word>
+      <Word>delete</Word>
+      <Word>nullptr</Word>
+      <Word>true</Word>
+      <Word>false</Word>
+      <Word>this</Word>
+      <Word>operator</Word>
+      <Word>sizeof</Word>
+      <Word>typedef</Word>
+      <Word>template</Word>
+      <Word>typename</Word>
+      <Word>throw</Word>
+    </Keywords>
+
+    <!-- Secondary keywords (pink italic) -->
+    <Keywords color="Keyword2">
+      <Word>public</Word>
+      <Word>private</Word>
+      <Word>protected</Word>
+      <Word>using</Word>
+      <Word>namespace</Word>
+      <Word>static</Word>
+      <Word>signed</Word>
+      <Word>unsigned</Word>
+      <Word>virtual</Word>
+      <Word>override</Word>
+      <Word>explicit</Word>
+      <Word>inline</Word>
+      <Word>extern</Word>
+      <Word>friend</Word>
+    </Keywords>
+
+    <!-- Types (blue italic) -->
+    <Keywords color="Type">
+      <Word>bool</Word>
+      <Word>int</Word>
+      <Word>float</Word>
+      <Word>double</Word>
+      <Word>long</Word>
+      <Word>short</Word>
+      <Word>char</Word>
+      <Word>void</Word>
+      <Word>string</Word>
+      <Word>vector</Word>
+      <Word>class</Word>
+      <Word>struct</Word>
+      <Word>enum</Word>
+      <Word>std</Word>
+      <Word>wchar_t</Word>
+      <Word>auto</Word>
+    </Keywords>
+
+    <!-- Method parameters - words inside parentheses -->
+    <Rule color="Parameter">(?&lt;=\()\s*\w+(?=\s*[,)])</Rule>
+
+    <!-- Hyperlinks -->
+    <Rule color="Hyperlink">(https?://|www\.)\S+</Rule>
+
+    <!-- Numbers (purple) -->
+    <Rule color="Number">\b0x[0-9a-fA-F]+\b</Rule>
+    <Rule color="Number">\b\d+\.?\d*f?\b</Rule>
+
+    <!-- Method calls (green) - word followed by ( -->
+    <Rule color="Method">\b(?!for\b|while\b|if\b|switch\b|catch\b)\w+(?=\s*\()</Rule>
+
+    <!-- Namespace/class scope operator (blue) -->
+    <Rule color="Namespace">\w+(?=\s*::)</Rule>
+
+    <!-- Operators (pink) -->
+    <Rule color="Operator">(\+|-|\*|/|%|=|&lt;|&gt;|\||&amp;&amp;|!|::)</Rule>
+
+    <!-- Structure punctuation (grey) -->
+    <Rule color="Structure">[;:#]</Rule>
+
+    <Rule color="Violation">static_cast|reinterpret_cast|dynamic_cast</Rule>
+    <Rule color="Violation">resize\(\)|ignore\(\)|clear\(\)</Rule>
+
+  </RuleSet>
+</SyntaxDefinition>
