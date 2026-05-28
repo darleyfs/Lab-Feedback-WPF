@@ -186,6 +186,10 @@ namespace Lab_Feedback_WPF.Services
             if (string.IsNullOrEmpty(text))
                 return new List<MatchInfo>();
 
+            // Strip comments so terms like "try" are not flagged when they appear in comments.
+            // Positions in searchableText correspond 1-to-1 with the original text.
+            string searchableText = StripComments(text);
+
             // Get all search strings sorted by length (longest first) to prioritize longer matches
             var sortedSearchStrings = _searchStrings.Where(s => !string.IsNullOrEmpty(s))
                                                    .OrderByDescending(s => s.Length)
@@ -195,21 +199,37 @@ namespace Lab_Feedback_WPF.Services
 
             foreach (string searchString in sortedSearchStrings)
             {
+                // Terms like "resize()" match any call to that method, regardless of arguments
+                bool isMethodPattern = searchString.EndsWith("()") && searchString.Length > 2
+                    && searchString[..^2].All(c => char.IsLetterOrDigit(c) || c == '_');
+                string effectiveSearch = isMethodPattern ? searchString[..^2] : searchString;
+
                 int startIndex = 0;
-                while (startIndex < text.Length)
+                while (startIndex < searchableText.Length)
                 {
-                    int index = text.IndexOf(searchString, startIndex, comparisonType);
+                    int index = searchableText.IndexOf(effectiveSearch, startIndex, comparisonType);
                     if (index == -1)
                         break;
 
-                    // Check if this is an exact match (not part of another word/symbol)
-                    if (IsExactMatch(text, searchString, index))
+                    bool matched;
+                    if (isMethodPattern)
+                    {
+                        int afterName = index + effectiveSearch.Length;
+                        matched = afterName < searchableText.Length && searchableText[afterName] == '('
+                            && IsWordBoundaryBefore(searchableText, index);
+                    }
+                    else
+                    {
+                        matched = IsExactMatch(searchableText, searchString, index);
+                    }
+
+                    if (matched)
                     {
                         allMatches.Add(new MatchInfo
                         {
                             SearchString = searchString,
                             Position = index,
-                            Length = searchString.Length
+                            Length = effectiveSearch.Length
                         });
                     }
 
@@ -274,6 +294,61 @@ namespace Lab_Feedback_WPF.Services
 
                 return new Violation(lineNumber, ctx.MatchedText, ctx.FullContext, lineContent);
             }).ToList();
+        }
+
+        // Replaces C++ comment content with spaces so positions are preserved.
+        // String literals are tracked to avoid treating // or /* inside strings as comments.
+        private string StripComments(string text)
+        {
+            var result = text.ToCharArray();
+            int i = 0;
+            bool inString = false;
+            bool inChar = false;
+
+            while (i < text.Length)
+            {
+                if (inString)
+                {
+                    if (text[i] == '\\' && i + 1 < text.Length) i += 2;
+                    else if (text[i] == '"') { inString = false; i++; }
+                    else i++;
+                }
+                else if (inChar)
+                {
+                    if (text[i] == '\\' && i + 1 < text.Length) i += 2;
+                    else if (text[i] == '\'') { inChar = false; i++; }
+                    else i++;
+                }
+                else if (text[i] == '"') { inString = true; i++; }
+                else if (text[i] == '\'') { inChar = true; i++; }
+                else if (i + 1 < text.Length && text[i] == '/' && text[i + 1] == '/')
+                {
+                    while (i < text.Length && text[i] != '\n') { result[i] = ' '; i++; }
+                }
+                else if (i + 1 < text.Length && text[i] == '/' && text[i + 1] == '*')
+                {
+                    result[i] = ' '; result[i + 1] = ' '; i += 2;
+                    while (i < text.Length)
+                    {
+                        if (i + 1 < text.Length && text[i] == '*' && text[i + 1] == '/')
+                        {
+                            result[i] = ' '; result[i + 1] = ' '; i += 2; break;
+                        }
+                        if (text[i] != '\n') result[i] = ' ';
+                        i++;
+                    }
+                }
+                else i++;
+            }
+
+            return new string(result);
+        }
+
+        private bool IsWordBoundaryBefore(string text, int index)
+        {
+            if (index == 0) return true;
+            char charBefore = text[index - 1];
+            return !char.IsLetterOrDigit(charBefore) && charBefore != '_';
         }
 
         private bool IsExactMatch(string text, string searchString, int index)
