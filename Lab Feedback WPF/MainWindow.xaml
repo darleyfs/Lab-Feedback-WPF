@@ -1,25 +1,50 @@
-<ui:FluentWindow
+﻿<ui:FluentWindow
     x:Class="Lab_Feedback_WPF.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
-    xmlns:vm="clr-namespace:Lab_Feedback_WPF.ViewModels"
-    xmlns:views="clr-namespace:Lab_Feedback_WPF.Views"
     Title="Lab Feedback" Height="800" Width="1200">
 
     <ui:FluentWindow.Resources>
-
-        <CollectionViewSource x:Key="GroupedStudents" Source="{Binding Students}">
-            <CollectionViewSource.GroupDescriptions>
-                <PropertyGroupDescription PropertyName="Section"/>
-            </CollectionViewSource.GroupDescriptions>
-        </CollectionViewSource>
-
         <Style x:Key="CompactListBoxItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="4,2"/>
             <EventSetter Event="PreviewMouseRightButtonDown"
                          Handler="ListBoxItem_PreviewMouseRightButtonDown"/>
+        </Style>
+
+        <Style x:Key="SidePanelTabStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="72"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#999999"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="border"
+                        Background="{TemplateBinding Background}"
+                        BorderThickness="2,0,0,0"
+                        BorderBrush="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#007ACC"/>
+                                <Setter TargetName="border" Property="Background" Value="#1E1E1E"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#3F3F46"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="StatusLabelStyle" TargetType="TextBlock">
@@ -40,155 +65,72 @@
             <Setter Property="Margin" Value="8,2"/>
         </Style>
 
-        <!-- Collapsible section-group header: tight, blends into the list background -->
-        <Style x:Key="SectionExpanderStyle" TargetType="Expander">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Expander">
-                        <DockPanel>
-                            <ToggleButton DockPanel.Dock="Top"
-                                          Content="{TemplateBinding Header}"
-                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
-                                          Cursor="Hand"
-                                          HorizontalAlignment="Stretch"
-                                          HorizontalContentAlignment="Left"
-                                          Padding="3,1"
-                                          Background="Transparent"
-                                          BorderThickness="0">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="ToggleButton">
-                                        <Border x:Name="toggleBorder"
-                                                Background="{TemplateBinding Background}"
-                                                Padding="{TemplateBinding Padding}"
-                                                HorizontalAlignment="Stretch">
-                                            <DockPanel>
-                                                <TextBlock x:Name="arrow"
-                                                           DockPanel.Dock="Left"
-                                                           Text="&#xE76C;"
-                                                           FontFamily="Segoe MDL2 Assets"
-                                                           FontSize="8"
-                                                           Foreground="#777777"
-                                                           VerticalAlignment="Center"
-                                                           Margin="0,0,4,0"
-                                                           RenderTransformOrigin="0.5,0.5">
-                                                    <TextBlock.RenderTransform>
-                                                        <RotateTransform Angle="0"/>
-                                                    </TextBlock.RenderTransform>
-                                                </TextBlock>
-                                                <ContentPresenter VerticalAlignment="Center"/>
-                                            </DockPanel>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="toggleBorder" Property="Background" Value="#2A2A2A"/>
-                                            </Trigger>
-                                            <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="arrow" Property="RenderTransform">
-                                                    <Setter.Value>
-                                                        <RotateTransform Angle="90"/>
-                                                    </Setter.Value>
-                                                </Setter>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                            </ToggleButton>
-                            <ContentPresenter x:Name="expanderContent"/>
-                        </DockPanel>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsExpanded" Value="False">
-                                <Setter TargetName="expanderContent" Property="Visibility" Value="Collapsed"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <!-- Violations Panel -->
+        <Border x:Key="ViolationsPanel" Background="#1E1E1E" Padding="8">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top"
+                    Text="Violations"
+                    FontWeight="SemiBold"
+                    FontSize="13"
+                    Foreground="#CCCCCC"
+                    Margin="0,0,0,8"/>
+                <ListView x:Name="violationsList"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Foreground="#CCCCCC"
+                    FontFamily="Consolas"
+                    FontSize="12"/>
+            </DockPanel>
+        </Border>
 
-        <!-- File tab button style -->
-        <Style x:Key="FileTabButtonStyle" TargetType="Button">
-            <Setter Property="Margin" Value="0"/>
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="BorderThickness" Value="0,2,0,0"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#8F8F8F"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="#1E1E1E"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#2A2A2A"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- File tab DataTemplate -->
-        <DataTemplate DataType="{x:Type vm:FileTabViewModel}">
-            <Button Content="{Binding FileName}"
-                    Command="{Binding DataContext.SelectTabCommand,
-                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                    CommandParameter="{Binding}">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource FileTabButtonStyle}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter Property="Background" Value="#272822"/>
-                                <Setter Property="Foreground" Value="#F8F8F2"/>
-                                <Setter Property="BorderBrush" Value="#66D9EF"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-            </Button>
-        </DataTemplate>
-
+        <!-- File Info Panel -->
+        <Border x:Key="FileInfoPanel" Background="#1E1E1E" Padding="8">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top"
+                    Text="File Info"
+                    FontWeight="SemiBold"
+                    FontSize="13"
+                    Foreground="#CCCCCC"
+                    Margin="0,0,0,8"/>
+                <StackPanel x:Name="fileInfoStack">
+                    <TextBlock x:Name="fileInfoName"
+                        Foreground="#CCCCCC"
+                        FontSize="12"
+                        TextWrapping="Wrap"/>
+                    <TextBlock x:Name="fileInfoPath"
+                        Foreground="#666666"
+                        FontSize="11"
+                        TextWrapping="Wrap"
+                        Margin="0,4,0,0"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
     </ui:FluentWindow.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <!-- TitleBar -->
             <RowDefinition Height="*"/>
+            <!-- Content -->
             <RowDefinition Height="Auto"/>
+            <!-- StatusBar -->
         </Grid.RowDefinitions>
 
-        <!-- Title Bar -->
+        <!-- Title Bar (replaces your custom titleBar panel) -->
         <ui:TitleBar Grid.Row="0" Title="Lab Feedback">
             <ui:TitleBar.Header>
                 <Menu>
                     <MenuItem Header="File">
-                        <MenuItem Header="Open Folder" Command="{Binding OpenFolderCommand}"/>
-                        <MenuItem Header="Refresh" Command="{Binding RefreshCommand}"/>
+                        <MenuItem Header="Open Folder" Click="OpenFolderMenuItem_Click"/>
                         <Separator/>
-                        <MenuItem Header="Exit" Command="{Binding ExitCommand}"/>
-                    </MenuItem>
-                    <MenuItem Header="View">
-                        <MenuItem Header="Grade Overview"
-                                  IsCheckable="True"
-                                  IsChecked="{Binding IsGradeOverviewVisible, Mode=TwoWay}"/>
+                        <MenuItem Header="Exit" Click="ExitMenuItem_Click"/>
                     </MenuItem>
                 </Menu>
             </ui:TitleBar.Header>
         </ui:TitleBar>
 
-        <!-- Main Content -->
+        <!-- Main Content (replaces your SplitContainers) -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="200"/>
@@ -207,139 +149,101 @@
                 </Grid.RowDefinitions>
 
                 <DockPanel Grid.Row="0">
-                    <DockPanel DockPanel.Dock="Top" Margin="5,2,2,4">
-                        <TextBlock Text="STUDENTS" Foreground="#999999"
-                                   VerticalAlignment="Center"
-                                   FontWeight="Bold" FontSize="11"/>
-                        <Button DockPanel.Dock="Right"
-                                Command="{Binding RefreshCommand}"
-                                ToolTip="Refresh (reload folders and grade sheets)"
-                                Width="22" Height="22"
-                                Padding="0"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                HorizontalAlignment="Right">
-                            <TextBlock Text="&#xE72C;"
-                                       FontFamily="Segoe MDL2 Assets"
-                                       FontSize="12"
-                                       Foreground="#999999"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
-                        </Button>
-                    </DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="STUDENTS" Foreground="#999999"
+                               Margin="5,4,5,4" FontWeight="Bold" FontSize="11"/>
                     <ListBox x:Name="listBoxStudents"
-                             ItemsSource="{Binding Source={StaticResource GroupedStudents}}"
-                             SelectedItem="{Binding SelectedStudent, Mode=TwoWay}"
                              ItemContainerStyle="{StaticResource CompactListBoxItem}"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             Margin="5,0,5,0"
+                             SelectionChanged="ListBoxStudents_SelectionChanged" Margin="5,0,5,0" 
                              Foreground="#FF999999">
+
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding FullName}" FontSize="12" Foreground="#999999"/>
+                                <TextBlock Text="{Binding FullName}"
+                               FontSize="12"
+                               Foreground="#999999"/>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
-                        <ListBox.GroupStyle>
-                            <GroupStyle>
-                                <GroupStyle.ContainerStyle>
-                                    <Style TargetType="{x:Type GroupItem}">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                    <Expander IsExpanded="True"
-                                                              Style="{StaticResource SectionExpanderStyle}"
-                                                              Margin="0,1,0,0">
-                                                        <Expander.Header>
-                                                            <TextBlock Text="{Binding Name}"
-                                                                       FontWeight="Bold"
-                                                                       FontSize="11"
-                                                                       Foreground="#999999"/>
-                                                        </Expander.Header>
-                                                        <ItemsPresenter/>
-                                                    </Expander>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </GroupStyle.ContainerStyle>
-                            </GroupStyle>
-                        </ListBox.GroupStyle>
+
                         <ListBox.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Header="Open in File Explorer"
-                                          Command="{Binding PlacementTarget.DataContext.OpenStudentInExplorerCommand,
-                                                            RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                <MenuItem Header="Copy Student Name and ID Number"
-                                          Command="{Binding PlacementTarget.DataContext.CopyStudentInfoCommand,
-                                                            RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="Open in File Explorer" 
+                                    Click="OpenInFileExplorer_Click"/>
+                                <MenuItem Header="Copy Student Name and ID Number" 
+                                    Click="CopyStudentNameAndNumber_Click"/>
                             </ContextMenu>
                         </ListBox.ContextMenu>
                     </ListBox>
                 </DockPanel>
 
-                <GridSplitter Height="1" Grid.Row="1" HorizontalAlignment="Stretch" Background="#3F3F46"/>
+                <GridSplitter 
+                    Height="1"
+                    Grid.Row="1" 
+                    HorizontalAlignment="Stretch"
+                    Background="#3F3F46"/>
 
                 <DockPanel Grid.Row="2">
-                    <TextBlock DockPanel.Dock="Top" Text="ASSIGNMENTS" Foreground="#999999"
-                               Margin="5,4,5,4" FontWeight="Bold" FontSize="11"/>
+                    <TextBlock 
+                        DockPanel.Dock="Top" Text="ASSIGNMENTS" Foreground="#999999"
+                        Margin="5,4,5,4" FontWeight="Bold" FontSize="11"/>
                     <ListBox x:Name="listBoxAssignments"
-                             ItemsSource="{Binding Assignments}"
-                             SelectedItem="{Binding SelectedAssignment, Mode=TwoWay}"
-                             ItemContainerStyle="{StaticResource CompactListBoxItem}"
-                             Margin="5,0,5,0"
-                             Foreground="#FF999999">
+                         ItemContainerStyle="{StaticResource CompactListBoxItem}"
+                         SelectionChanged="ListBoxAssignments_SelectionChanged" Margin="5,0,5,0" 
+                         Foreground="#FF999999">
+
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Name}" FontSize="12" Foreground="#999999"/>
+                                <TextBlock Text="{Binding Name}"
+                               FontSize="12"
+                               Foreground="#999999"/>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
+
                         <ListBox.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Open in File Explorer"
-                                          Command="{Binding PlacementTarget.DataContext.OpenAssignmentInExplorerCommand,
-                                                            RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    Click="OpenAssignmentInFileExplorer_Click"/>
                             </ContextMenu>
                         </ListBox.ContextMenu>
                     </ListBox>
                 </DockPanel>
             </Grid>
+            
+            <GridSplitter 
+                Grid.Column="1" 
+                Width="1"
+                HorizontalAlignment="Stretch"
+                Background="#3F3F46" />
 
-            <GridSplitter Grid.Column="1" Width="1" HorizontalAlignment="Stretch" Background="#3F3F46"/>
-
-            <!-- Center: Code View -->
+            <!-- Right Panel: Code View -->
             <DockPanel Grid.Column="2">
+                <DockPanel DockPanel.Dock="Top" Background="#272822">
 
-                <!-- Tab bar -->
-                <DockPanel DockPanel.Dock="Top" Background="#1E1E1E">
                     <Button x:Name="buttonOpenGrading"
-                            DockPanel.Dock="Right"
-                            Width="28" Height="28"
-                            Padding="0"
-                            ToolTip="Open Grading Panel"
-                            Command="{Binding ToggleSidePanelCommand}"
-                            Background="#1E1E1E"
-                            BorderThickness="0"
-                            VerticalAlignment="Center">
+                        DockPanel.Dock="Right"
+                        Width="28"
+                        Height="28"
+                        Padding="0"
+                        ToolTip="Open Grading Panel"
+                        Click="ButtonOpenGrading_Click"
+                        Background="#272822"
+                        BorderThickness="0"
+                        VerticalAlignment="Center">
+                        
                         <TextBlock Text="&#xE762;"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14"
-                                   Foreground="#999999"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
+                           FontFamily="Segoe MDL2 Assets"
+                           FontSize="14"
+                           Foreground="#999999"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
                     </Button>
+
                     <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Disabled">
-                        <ItemsControl ItemsSource="{Binding FileTabs}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" Background="#1E1E1E"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                        VerticalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="panelFileTabs" Orientation="Horizontal" Background="#272822"/>
                     </ScrollViewer>
+
                 </DockPanel>
 
-                <!-- Editor area -->
                 <Grid>
                     <avalon:TextEditor
                         x:Name="codeEditor"
@@ -350,119 +254,83 @@
                         Background="#272822"
                         Foreground="#F8F8F2"/>
 
-                    <!-- Empty state overlay -->
                     <Border x:Name="emptyStateOverlay"
-                            Background="#272822">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsEmptyState}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
+                        Background="#272822"
+                        Visibility="Visible">
                         <StackPanel HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Opacity="0.4">
+                        VerticalAlignment="Center"
+                        Opacity="0.4">
                             <TextBlock Text="&#xE8A5;"
-                                       FontFamily="Segoe MDL2 Assets"
-                                       FontSize="48"
-                                       HorizontalAlignment="Center"
-                                       Foreground="#F8F8F2"
-                                       Margin="0,0,0,16"/>
+                           FontFamily="Segoe MDL2 Assets"
+                           FontSize="48"
+                           HorizontalAlignment="Center"
+                           Foreground="#F8F8F2"
+                           Margin="0,0,0,16"/>
                             <TextBlock Text="No file selected"
-                                       FontSize="18"
-                                       FontWeight="SemiBold"
-                                       HorizontalAlignment="Center"
-                                       Foreground="#F8F8F2"
-                                       Margin="0,0,0,8"/>
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           Foreground="#F8F8F2"
+                           Margin="0,0,0,8"/>
                             <TextBlock Text="1. Select a student from the list"
-                                       FontSize="13"
-                                       HorizontalAlignment="Center"
-                                       Foreground="#F8F8F2"
-                                       Margin="0,0,0,4"/>
+                           FontSize="13"
+                           HorizontalAlignment="Center"
+                           Foreground="#F8F8F2"
+                           Margin="0,0,0,4"/>
                             <TextBlock Text="2. Select an assignment to view its code"
-                                       FontSize="13"
-                                       HorizontalAlignment="Center"
-                                       Foreground="#F8F8F2"/>
+                           FontSize="13"
+                           HorizontalAlignment="Center"
+                           Foreground="#F8F8F2"/>
                         </StackPanel>
-                    </Border>
-
-                    <!-- Grade Overview overlay -->
-                    <Border x:Name="gradeOverviewOverlay">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsGradeOverviewVisible}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <views:GradeOverviewView DataContext="{Binding GradeOverviewVM}"/>
                     </Border>
                 </Grid>
             </DockPanel>
 
             <GridSplitter x:Name="sidePanelSplitter"
-                          Grid.Column="3"
-                          Width="5"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          Background="#3F3F46"
-                          Visibility="Collapsed"/>
+              Grid.Column="3"
+              Width="5"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              Background="#3F3F46"
+              Visibility="Collapsed"/>
 
-            <!-- Side Panel -->
+            <!-- Side Panel Content -->
             <Border x:Name="sidePanelContent"
-                    Grid.Column="4"
-                    Background="#1E1E1E"
-                    BorderBrush="#3F3F46"
-                    BorderThickness="1,0,0,0">
+                Grid.Column="4"
+                Background="#1E1E1E"
+                BorderBrush="#3F3F46"
+                BorderThickness="1,0,0,0">
                 <ContentPresenter x:Name="sidePanelPresenter"/>
             </Border>
         </Grid>
 
         <!-- Status Bar -->
         <Border Grid.Row="2"
-                Height="24"
-                Background="#2D2D30"
-                BorderBrush="#3F3F46"
-                BorderThickness="0,1,0,0">
-            <StackPanel Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        Margin="15,0,15,3">
+        Height="24"
+        Background="#2D2D30"
+        BorderBrush="#3F3F46"
+        BorderThickness="0,1,0,0">
+            <StackPanel 
+                Orientation="Horizontal"
+                VerticalAlignment="Center"
+                Margin="15,0,15,3">
 
                 <TextBlock Text="Builds: " Style="{StaticResource StatusLabelStyle}"/>
-                <TextBlock Text="{Binding StatusBuilds}" Style="{StaticResource StatusValueStyle}"/>
+                <TextBlock x:Name="statusBuilds" Text="0" Style="{StaticResource StatusValueStyle}"/>
 
                 <Separator Style="{StaticResource StatusSeparatorStyle}"/>
 
                 <TextBlock Text="Score: " Style="{StaticResource StatusLabelStyle}"/>
-                <TextBlock Text="{Binding StatusScore}" Style="{StaticResource StatusValueStyle}"/>
+                <TextBlock x:Name="statusScore" Text="0" Style="{StaticResource StatusValueStyle}"/>
 
                 <Separator Style="{StaticResource StatusSeparatorStyle}"/>
 
                 <TextBlock Text="Violations: " Style="{StaticResource StatusLabelStyle}"/>
                 <TextBlock x:Name="statusViolations"
-                           Text="{Binding ViolationCount}"
-                           Foreground="{Binding ViolationColor}"
-                           FontSize="11"
-                           VerticalAlignment="Center"
-                           ToolTipService.ShowDuration="30000"
-                           ToolTipService.InitialShowDelay="500">
-                    <TextBlock.ToolTip>
-                        <ToolTip>
-                            <TextBlock Text="{Binding ViolationTooltip}"
-                                       FontFamily="Consolas"
-                                       MaxWidth="600"
-                                       TextWrapping="Wrap"/>
-                        </ToolTip>
-                    </TextBlock.ToolTip>
-                </TextBlock>
-
+                   Text="0"
+                   Style="{StaticResource StatusValueStyle}"
+                   ToolTipService.ShowDuration="30000"
+                   ToolTipService.InitialShowDelay="500"/>
             </StackPanel>
         </Border>
     </Grid>

@@ -1,45 +1,53 @@
-using Lab_Feedback_WPF.Services;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Wpf.Ui.Controls;
 using Button = Wpf.Ui.Controls.Button;
+using TextBox = Wpf.Ui.Controls.TextBox;
 using TextBlock = Wpf.Ui.Controls.TextBlock;
+
 
 namespace Lab_Feedback_WPF.Views
 {
-    public partial class ExtractionProgressDialog : FluentWindow, IExtractionProgress
+    public partial class ExtractionProgressDialog : FluentWindow
     {
+        // Tracks each active extraction operation
         private readonly Dictionary<string, ExtractionOperation> _operations = new();
         private readonly CancellationTokenSource _globalCts = new();
+
+        public CancellationToken GlobalCancellationToken => _globalCts.Token;
 
         public ExtractionProgressDialog()
         {
             InitializeComponent();
         }
 
-        // ─── IExtractionProgress ──────────────────────────────────────────────
+        // ─── Public API ───────────────────────────────────────────────────────
 
-        public ExtractionOperationToken AddOperation(string id, string title, int totalFiles)
+        /// <summary>
+        /// Registers a new extraction operation and returns its individual
+        /// CancellationToken. Call this before starting extraction.
+        /// </summary>
+        public ExtractionOperation AddOperation(string operationId, string title, int totalFiles)
         {
             var cts = CancellationTokenSource.CreateLinkedTokenSource(_globalCts.Token);
-            var operation = new ExtractionOperation(id, title, totalFiles, cts);
+            var operation = new ExtractionOperation(operationId, title, totalFiles, cts);
 
             Dispatcher.Invoke(() =>
             {
-                _operations[id] = operation;
+                _operations[operationId] = operation;
                 progressItemsPanel.Children.Add(CreateOperationCard(operation));
                 UpdateHeader();
             });
 
-            return new ExtractionOperationToken(cts.Token);
+            return operation;
         }
 
-        public void UpdateOperation(string id, int current, string fileName)
+        public void UpdateOperation(string operationId, int current, string fileName)
         {
             Dispatcher.Invoke(() =>
             {
-                if (!_operations.TryGetValue(id, out var op)) return;
+                if (!_operations.TryGetValue(operationId, out var op)) return;
                 op.Current = current;
                 op.CurrentFile = fileName;
                 op.ProgressBar.Value = current;
@@ -48,11 +56,11 @@ namespace Lab_Feedback_WPF.Views
             });
         }
 
-        public void CompleteOperation(string id)
+        public void CompleteOperation(string operationId)
         {
             Dispatcher.Invoke(() =>
             {
-                if (!_operations.TryGetValue(id, out var op)) return;
+                if (!_operations.TryGetValue(operationId, out var op)) return;
                 op.StatusLabel.Text = "Complete";
                 op.ProgressBar.Value = op.TotalFiles;
                 op.CancelButton.IsEnabled = false;
@@ -61,18 +69,20 @@ namespace Lab_Feedback_WPF.Views
                 op.Cts.Dispose();
                 UpdateHeader();
 
+                // Auto close if all operations are done
                 if (_operations.Values.All(o => o.IsComplete || o.IsCancelled))
                     Close();
             });
         }
 
-        public void FailOperation(string id, string message)
+        public void FailOperation(string operationId, string message)
         {
             Dispatcher.Invoke(() =>
             {
-                if (!_operations.TryGetValue(id, out var op)) return;
+                if (!_operations.TryGetValue(operationId, out var op)) return;
                 op.StatusLabel.Text = $"Error: {message}";
-                op.StatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(249, 38, 114));
+                op.StatusLabel.Foreground =
+                    new SolidColorBrush(Color.FromRgb(249, 38, 114));
                 op.CancelButton.IsEnabled = false;
                 op.IsComplete = true;
                 op.Cts.Dispose();
@@ -96,6 +106,7 @@ namespace Lab_Feedback_WPF.Views
             var stack = new StackPanel();
             card.Child = stack;
 
+            // Title row
             var titleRow = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
 
             var cancelBtn = new Button
@@ -115,7 +126,8 @@ namespace Lab_Feedback_WPF.Views
                 cancelBtn.IsEnabled = false;
                 cancelBtn.Content = "—";
                 op.StatusLabel.Text = "Cancelled";
-                op.StatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+                op.StatusLabel.Foreground =
+                    new SolidColorBrush(Color.FromRgb(150, 150, 150));
                 op.Cts.Dispose();
                 UpdateHeader();
 
@@ -126,7 +138,7 @@ namespace Lab_Feedback_WPF.Views
             titleRow.Children.Add(cancelBtn);
             op.CancelButton = cancelBtn;
 
-            titleRow.Children.Add(new TextBlock
+            var titleLabel = new TextBlock
             {
                 Text = op.Title,
                 FontSize = 12,
@@ -134,9 +146,11 @@ namespace Lab_Feedback_WPF.Views
                 Foreground = new SolidColorBrush(Color.FromRgb(204, 204, 204)),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
-            });
+            };
+            titleRow.Children.Add(titleLabel);
             stack.Children.Add(titleRow);
 
+            // Progress bar
             var progressBar = new ProgressBar
             {
                 Minimum = 0,
@@ -148,6 +162,7 @@ namespace Lab_Feedback_WPF.Views
             op.ProgressBar = progressBar;
             stack.Children.Add(progressBar);
 
+            // File count
             var fileCountLabel = new TextBlock
             {
                 Text = $"0 of {op.TotalFiles}",
@@ -158,6 +173,7 @@ namespace Lab_Feedback_WPF.Views
             op.FileCountLabel = fileCountLabel;
             stack.Children.Add(fileCountLabel);
 
+            // Status
             var statusLabel = new TextBlock
             {
                 Text = "Preparing...",
@@ -193,10 +209,11 @@ namespace Lab_Feedback_WPF.Views
         private void ExtractionProgressDialog_Closing(
             object sender, System.ComponentModel.CancelEventArgs e)
         {
+            // Only cancel if there are active operations; otherwise let them complete
             var hasActiveOperations = _operations.Values.Any(o => !o.IsComplete && !o.IsCancelled);
             if (hasActiveOperations)
             {
-                e.Cancel = true;
+                e.Cancel = true; // Prevent closing while operations are active
             }
             else if (!_globalCts.IsCancellationRequested)
             {
@@ -206,7 +223,7 @@ namespace Lab_Feedback_WPF.Views
         }
     }
 
-    // ─── Operation State ──────────────────────────────────────────────────────
+    // ─── Operation Model ──────────────────────────────────────────────────────
 
     public class ExtractionOperation
     {
@@ -218,13 +235,16 @@ namespace Lab_Feedback_WPF.Views
         public bool IsComplete { get; set; }
         public bool IsCancelled { get; set; }
         public CancellationTokenSource Cts { get; }
+        public CancellationToken CancellationToken => Cts.Token;
 
+        // UI references updated by the dialog
         public ProgressBar ProgressBar { get; set; } = null!;
-        public Wpf.Ui.Controls.TextBlock FileCountLabel { get; set; } = null!;
-        public Wpf.Ui.Controls.TextBlock StatusLabel { get; set; } = null!;
-        public Wpf.Ui.Controls.Button CancelButton { get; set; } = null!;
+        public TextBlock FileCountLabel { get; set; } = null!;
+        public TextBlock StatusLabel { get; set; } = null!;
+        public Button CancelButton { get; set; } = null!;
 
-        public ExtractionOperation(string id, string title, int totalFiles, CancellationTokenSource cts)
+        public ExtractionOperation(string id, string title, int totalFiles,
+            CancellationTokenSource cts)
         {
             Id = id;
             Title = title;
