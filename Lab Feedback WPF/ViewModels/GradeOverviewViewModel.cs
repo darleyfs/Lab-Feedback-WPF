@@ -18,6 +18,7 @@ namespace Lab_Feedback_WPF.ViewModels
         private int _inactive;
         private int _alreadyRescheduled;
         private int _needRescheduling;
+        private bool _rescheduleFileFound;
 
         public ObservableCollection<GradeRecord> Records { get; } = new();
         public ObservableCollection<SectionCheckStatus> SectionChecks { get; } = new();
@@ -29,6 +30,9 @@ namespace Lab_Feedback_WPF.ViewModels
         public int Inactive { get => _inactive; private set => SetField(ref _inactive, value); }
         public int AlreadyRescheduled { get => _alreadyRescheduled; private set => SetField(ref _alreadyRescheduled, value); }
         public int NeedRescheduling { get => _needRescheduling; private set => SetField(ref _needRescheduling, value); }
+
+        /// <summary>Whether the single class-wide reschedule CSV was found at the root folder.</summary>
+        public bool RescheduleFileFound { get => _rescheduleFileFound; private set => SetField(ref _rescheduleFileFound, value); }
 
         public ICommand CopySelectedCommand { get; }
         public ICommand CopyNeedRescheduleCommand { get; }
@@ -44,15 +48,18 @@ namespace Lab_Feedback_WPF.ViewModels
             Records.Clear();
             SectionChecks.Clear();
 
+            var (rescheduledIds, rescheduleFound) = GradebookService.LoadRescheduleList(rootPath);
+            RescheduleFileFound = rescheduleFound;
+
             foreach (var sectionName in sectionFolderNames)
             {
                 var sectionFolder = Path.Combine(rootPath, sectionName);
-                var (records, status) = GradebookService.LoadSection(sectionFolder, sectionName);
+                var (records, gradebookFound) = GradebookService.LoadSection(sectionFolder, sectionName, rescheduledIds);
 
                 foreach (var record in records)
                     Records.Add(record);
 
-                SectionChecks.Add(status);
+                SectionChecks.Add(new SectionCheckStatus(sectionName, gradebookFound));
             }
 
             UpdateSummary();
@@ -62,6 +69,7 @@ namespace Lab_Feedback_WPF.ViewModels
         {
             Records.Clear();
             SectionChecks.Clear();
+            RescheduleFileFound = false;
             UpdateSummary();
         }
 
