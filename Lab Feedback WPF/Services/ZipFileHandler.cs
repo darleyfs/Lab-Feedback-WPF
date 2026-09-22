@@ -28,6 +28,10 @@ namespace Lab_Feedback_WPF.Services
             {
                 for (int i = 0; i < zipFiles.Length; i++)
                 {
+                    // If token is None (reporter was disposed), exit gracefully
+                    if (token?.CancellationToken == CancellationToken.None)
+                        return true;
+
                     if (token?.CancellationToken.IsCancellationRequested == true)
                         return false;
 

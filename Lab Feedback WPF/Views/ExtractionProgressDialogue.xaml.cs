@@ -12,6 +12,7 @@ namespace Lab_Feedback_WPF.Views
     {
         private readonly Dictionary<string, ExtractionOperation> _operations = new();
         private readonly CancellationTokenSource _globalCts = new();
+        private bool _isDisposed = false;
 
         public ExtractionProgressDialog()
         {
@@ -22,21 +23,43 @@ namespace Lab_Feedback_WPF.Views
 
         public ExtractionOperationToken AddOperation(string id, string title, int totalFiles)
         {
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(_globalCts.Token);
-            var operation = new ExtractionOperation(id, title, totalFiles, cts);
+            if (_isDisposed)
+                return new ExtractionOperationToken(CancellationToken.None);
 
-            Dispatcher.Invoke(() =>
+            if (_globalCts.IsCancellationRequested)
+                return new ExtractionOperationToken(CancellationToken.None);
+
+            try
             {
-                _operations[id] = operation;
-                progressItemsPanel.Children.Add(CreateOperationCard(operation));
-                UpdateHeader();
-            });
+                var cts = CancellationTokenSource.CreateLinkedTokenSource(_globalCts.Token);
+                var operation = new ExtractionOperation(id, title, totalFiles, cts);
 
-            return new ExtractionOperationToken(cts.Token);
+                Dispatcher.Invoke(() =>
+                {
+                    if (!_isDisposed)
+                    {
+                        _operations[id] = operation;
+                        progressItemsPanel.Children.Add(CreateOperationCard(operation));
+                        UpdateHeader();
+                    }
+                    else
+                    {
+                        cts.Dispose();
+                    }
+                });
+
+                return new ExtractionOperationToken(cts.Token);
+            }
+            catch (ObjectDisposedException)
+            {
+                return new ExtractionOperationToken(CancellationToken.None);
+            }
         }
 
         public void UpdateOperation(string id, int current, string fileName)
         {
+            if (_isDisposed) return;
+
             Dispatcher.Invoke(() =>
             {
                 if (!_operations.TryGetValue(id, out var op)) return;
@@ -50,6 +73,8 @@ namespace Lab_Feedback_WPF.Views
 
         public void CompleteOperation(string id)
         {
+            if (_isDisposed) return;
+
             Dispatcher.Invoke(() =>
             {
                 if (!_operations.TryGetValue(id, out var op)) return;
@@ -201,7 +226,19 @@ namespace Lab_Feedback_WPF.Views
             else if (!_globalCts.IsCancellationRequested)
             {
                 _globalCts.Cancel();
-                _globalCts.Dispose();
+            }
+
+            if (!_isDisposed && hasActiveOperations == false)
+            {
+                _isDisposed = true;
+                try
+                {
+                    _globalCts?.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Already disposed, ignore
+                }
             }
         }
     }
