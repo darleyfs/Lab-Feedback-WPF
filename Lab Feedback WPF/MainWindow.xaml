@@ -101,6 +101,7 @@
                 <Menu>
                     <MenuItem Header="File">
                         <MenuItem Header="Open Folder" Command="{Binding OpenFolderCommand}"/>
+                        <MenuItem Header="Refresh" Command="{Binding RefreshCommand}"/>
                         <Separator/>
                         <MenuItem Header="Exit" Command="{Binding ExitCommand}"/>
                     </MenuItem>
@@ -132,8 +133,26 @@
                 </Grid.RowDefinitions>
 
                 <DockPanel Grid.Row="0">
-                    <TextBlock DockPanel.Dock="Top" Text="STUDENTS" Foreground="#999999"
-                               Margin="5,4,5,4" FontWeight="Bold" FontSize="11"/>
+                    <DockPanel DockPanel.Dock="Top" Margin="5,2,2,4">
+                        <TextBlock Text="STUDENTS" Foreground="#999999"
+                                   VerticalAlignment="Center"
+                                   FontWeight="Bold" FontSize="11"/>
+                        <Button DockPanel.Dock="Right"
+                                Command="{Binding RefreshCommand}"
+                                ToolTip="Refresh (reload folders and grade sheets)"
+                                Width="22" Height="22"
+                                Padding="0"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                HorizontalAlignment="Right">
+                            <TextBlock Text="&#xE72C;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="12"
+                                       Foreground="#999999"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Button>
+                    </DockPanel>
                     <ListBox x:Name="listBoxStudents"
                              ItemsSource="{Binding Source={StaticResource GroupedStudents}}"
                              SelectedItem="{Binding SelectedStudent, Mode=TwoWay}"

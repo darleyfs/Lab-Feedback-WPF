@@ -41,6 +41,7 @@ namespace Lab_Feedback_WPF.ViewModels
             _violationColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC"));
 
             OpenFolderCommand = new RelayCommand(OpenFolder);
+            RefreshCommand = new RelayCommand(Refresh, () => _lastOpenedPath != null);
             ExitCommand = new RelayCommand(() => Application.Current.Shutdown());
             OpenStudentInExplorerCommand = new RelayCommand(OpenStudentInExplorer);
             CopyStudentInfoCommand = new RelayCommand(CopyStudentInfo);
@@ -155,6 +156,7 @@ namespace Lab_Feedback_WPF.ViewModels
         // ─── Commands ─────────────────────────────────────────────────────────
 
         public ICommand OpenFolderCommand { get; }
+        public ICommand RefreshCommand { get; }
         public ICommand ExitCommand { get; }
         public ICommand OpenStudentInExplorerCommand { get; }
         public ICommand CopyStudentInfoCommand { get; }
@@ -182,12 +184,27 @@ namespace Lab_Feedback_WPF.ViewModels
 
         // ─── Folder / Student Loading ─────────────────────────────────────────
 
+        private string? _lastOpenedPath;
+
         private void OpenFolder()
         {
             var dialog = new System.Windows.Forms.FolderBrowserDialog();
             if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
 
-            var students = Student.GetStudentsFromFolders(dialog.SelectedPath)
+            LoadFolder(dialog.SelectedPath);
+        }
+
+        private void Refresh()
+        {
+            if (_lastOpenedPath != null)
+                LoadFolder(_lastOpenedPath);
+        }
+
+        private void LoadFolder(string path)
+        {
+            _lastOpenedPath = path;
+
+            var students = Student.GetStudentsFromFolders(path)
                 .OrderBy(s => s.Section, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(s => s.LastName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -203,7 +220,7 @@ namespace Lab_Feedback_WPF.ViewModels
                 .ToList();
 
             if (sections.Count > 0)
-                GradeOverviewVM.Load(dialog.SelectedPath, sections);
+                GradeOverviewVM.Load(path, sections);
             else
                 GradeOverviewVM.Clear();
         }
