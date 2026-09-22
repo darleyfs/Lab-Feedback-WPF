@@ -19,6 +19,14 @@
             <Setter Property="Margin" Value="4,0,16,0"/>
         </Style>
 
+        <!-- Section check chip: name + gradebook/reschedule found indicators -->
+        <Style x:Key="CheckGlyphStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="3,0,2,0"/>
+        </Style>
+
         <!-- Row style: status color, overridden by AlreadyRescheduled -->
         <Style x:Key="GradeRowStyle" TargetType="DataGridRow">
             <Setter Property="Foreground" Value="#F8F8F2"/>
@@ -84,24 +92,71 @@
             </DockPanel>
         </Border>
 
-        <!-- Missing-gradebook note -->
+        <!-- Per-section gradebook/reschedule check status -->
         <Border DockPanel.Dock="Top"
-                Padding="12,4"
-                Background="#2D2D30">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Visibility" Value="Collapsed"/>
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding MissingGradebookNote}" Value="">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <TextBlock Text="{Binding MissingGradebookNote}"
-                       Foreground="#E5C07B"
-                       FontSize="11"
-                       FontStyle="Italic"/>
+                Padding="12,6"
+                Background="#2D2D30"
+                BorderBrush="#3F3F46"
+                BorderThickness="0,0,0,1">
+            <ItemsControl ItemsSource="{Binding SectionChecks}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type models:SectionCheckStatus}">
+                        <Border Background="#1E1E1E" CornerRadius="3" Padding="6,3" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Section}"
+                                           FontSize="11"
+                                           FontWeight="Bold"
+                                           Foreground="#CCCCCC"
+                                           VerticalAlignment="Center"/>
+
+                                <TextBlock>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CheckGlyphStyle}">
+                                            <Setter Property="Text" Value="&#xE73E;"/>
+                                            <Setter Property="Foreground" Value="#98C379"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding GradebookFound}" Value="False">
+                                                    <Setter Property="Text" Value="&#xE7BA;"/>
+                                                    <Setter Property="Foreground" Value="#E5C07B"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="Gradebook"
+                                           FontSize="10"
+                                           Foreground="#999999"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0"/>
+
+                                <TextBlock>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CheckGlyphStyle}">
+                                            <Setter Property="Text" Value="&#xE73E;"/>
+                                            <Setter Property="Foreground" Value="#98C379"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RescheduleFound}" Value="False">
+                                                    <Setter Property="Text" Value="&#xE7BA;"/>
+                                                    <Setter Property="Foreground" Value="#E5C07B"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="Reschedule"
+                                           FontSize="10"
+                                           Foreground="#999999"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </Border>
 
         <!-- Table -->

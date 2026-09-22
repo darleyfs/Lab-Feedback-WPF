@@ -18,9 +18,9 @@ namespace Lab_Feedback_WPF.ViewModels
         private int _inactive;
         private int _alreadyRescheduled;
         private int _needRescheduling;
-        private string _missingGradebookNote = string.Empty;
 
         public ObservableCollection<GradeRecord> Records { get; } = new();
+        public ObservableCollection<SectionCheckStatus> SectionChecks { get; } = new();
 
         public int Total { get => _total; private set => SetField(ref _total, value); }
         public int Failing { get => _failing; private set => SetField(ref _failing, value); }
@@ -29,8 +29,6 @@ namespace Lab_Feedback_WPF.ViewModels
         public int Inactive { get => _inactive; private set => SetField(ref _inactive, value); }
         public int AlreadyRescheduled { get => _alreadyRescheduled; private set => SetField(ref _alreadyRescheduled, value); }
         public int NeedRescheduling { get => _needRescheduling; private set => SetField(ref _needRescheduling, value); }
-
-        public string MissingGradebookNote { get => _missingGradebookNote; private set => SetField(ref _missingGradebookNote, value); }
 
         public ICommand CopySelectedCommand { get; }
         public ICommand CopyNeedRescheduleCommand { get; }
@@ -44,24 +42,18 @@ namespace Lab_Feedback_WPF.ViewModels
         public void Load(string rootPath, IEnumerable<string> sectionFolderNames)
         {
             Records.Clear();
-
-            var missingSections = new List<string>();
+            SectionChecks.Clear();
 
             foreach (var sectionName in sectionFolderNames)
             {
                 var sectionFolder = Path.Combine(rootPath, sectionName);
-                var records = GradebookService.LoadSection(sectionFolder, sectionName);
-
-                if (records.Count == 0)
-                    missingSections.Add(sectionName);
+                var (records, status) = GradebookService.LoadSection(sectionFolder, sectionName);
 
                 foreach (var record in records)
                     Records.Add(record);
-            }
 
-            MissingGradebookNote = missingSections.Count > 0
-                ? $"No gradebook found for section(s): {string.Join(", ", missingSections)}"
-                : string.Empty;
+                SectionChecks.Add(status);
+            }
 
             UpdateSummary();
         }
@@ -69,7 +61,7 @@ namespace Lab_Feedback_WPF.ViewModels
         public void Clear()
         {
             Records.Clear();
-            MissingGradebookNote = string.Empty;
+            SectionChecks.Clear();
             UpdateSummary();
         }
 

@@ -24,10 +24,13 @@ public class GradebookServiceTests
     }
 
     [TestMethod]
-    public void LoadSection_NoGradebookFile_ReturnsEmpty()
+    public void LoadSection_NoGradebookFile_ReturnsEmptyAndReportsBothMissing()
     {
-        var records = GradebookService.LoadSection(_sectionFolder, "01");
+        var (records, status) = GradebookService.LoadSection(_sectionFolder, "01");
+
         Assert.AreEqual(0, records.Count);
+        Assert.IsFalse(status.GradebookFound);
+        Assert.IsFalse(status.RescheduleFound);
     }
 
     [TestMethod]
@@ -39,10 +42,12 @@ public class GradebookServiceTests
             "0007654321,Doe Jane,95,100,ACTIVE\n" +
             "0009999999,Old Student,0,0,DROPPED\n");
 
-        var records = GradebookService.LoadSection(_sectionFolder, "01");
+        var (records, status) = GradebookService.LoadSection(_sectionFolder, "01");
 
         Assert.AreEqual(3, records.Count);
         Assert.IsTrue(records.All(r => !r.AlreadyRescheduled));
+        Assert.IsTrue(status.GradebookFound);
+        Assert.IsFalse(status.RescheduleFound);
 
         var failing = records.Single(r => r.Name == "Smith John");
         Assert.AreEqual(GradeStatus.Failing, failing.Status);
@@ -65,12 +70,14 @@ public class GradebookServiceTests
             "Student Name,Student ID#,Reason\n" +
             "Smith John,0001234567,Illness\n");
 
-        var records = GradebookService.LoadSection(_sectionFolder, "01");
+        var (records, status) = GradebookService.LoadSection(_sectionFolder, "01");
 
         var record = records.Single();
         Assert.IsTrue(record.AlreadyRescheduled);
         Assert.IsFalse(record.NeedsReschedule);
         Assert.AreEqual("On Reschedule List", record.RescheduleStatusText);
+        Assert.IsTrue(status.GradebookFound);
+        Assert.IsTrue(status.RescheduleFound);
     }
 
     [TestMethod]
@@ -82,7 +89,7 @@ public class GradebookServiceTests
             ",,,,\n" +
             "0001234567,Smith John,60,100,ACTIVE\n");
 
-        var records = GradebookService.LoadSection(_sectionFolder, "01");
+        var (records, _) = GradebookService.LoadSection(_sectionFolder, "01");
 
         Assert.AreEqual(1, records.Count);
         Assert.AreEqual("Smith John", records[0].Name);

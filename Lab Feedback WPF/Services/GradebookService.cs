@@ -14,10 +14,12 @@ namespace Lab_Feedback_WPF.Services
             "Student ID#", "Student ID", "ID", "StudentID", "id", "student_id"
         };
 
-        public static List<GradeRecord> LoadSection(string sectionFolder, string sectionName)
+        public static (List<GradeRecord> Records, SectionCheckStatus Status) LoadSection(string sectionFolder, string sectionName)
         {
             var records = new List<GradeRecord>();
-            if (!Directory.Exists(sectionFolder)) return records;
+
+            if (!Directory.Exists(sectionFolder))
+                return (records, new SectionCheckStatus(sectionName, gradebookFound: false, rescheduleFound: false));
 
             var files = Directory.GetFiles(sectionFolder, "*.csv", SearchOption.TopDirectoryOnly);
 
@@ -31,7 +33,8 @@ namespace Lab_Feedback_WPF.Services
             foreach (var gradebookFile in gradebookFiles)
                 records.AddRange(ParseGradebook(gradebookFile, sectionName, rescheduledIds));
 
-            return records;
+            var status = new SectionCheckStatus(sectionName, gradebookFiles.Count > 0, rescheduleFile != null);
+            return (records, status);
         }
 
         private static HashSet<string> LoadRescheduledIds(string filePath)
