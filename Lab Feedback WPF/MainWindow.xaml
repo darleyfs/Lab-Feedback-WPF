@@ -5,9 +5,16 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
     xmlns:vm="clr-namespace:Lab_Feedback_WPF.ViewModels"
+    xmlns:views="clr-namespace:Lab_Feedback_WPF.Views"
     Title="Lab Feedback" Height="800" Width="1200">
 
     <ui:FluentWindow.Resources>
+
+        <CollectionViewSource x:Key="GroupedStudents" Source="{Binding Students}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Section"/>
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
 
         <Style x:Key="CompactListBoxItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="4,2"/>
@@ -33,19 +40,92 @@
             <Setter Property="Margin" Value="8,2"/>
         </Style>
 
+        <!-- Collapsible section-group header: tight, blends into the list background -->
+        <Style x:Key="SectionExpanderStyle" TargetType="Expander">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <DockPanel>
+                            <ToggleButton DockPanel.Dock="Top"
+                                          Content="{TemplateBinding Header}"
+                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                          Cursor="Hand"
+                                          HorizontalAlignment="Stretch"
+                                          HorizontalContentAlignment="Left"
+                                          Padding="3,1"
+                                          Background="Transparent"
+                                          BorderThickness="0">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="toggleBorder"
+                                                Background="{TemplateBinding Background}"
+                                                Padding="{TemplateBinding Padding}"
+                                                HorizontalAlignment="Stretch">
+                                            <DockPanel>
+                                                <TextBlock x:Name="arrow"
+                                                           DockPanel.Dock="Left"
+                                                           Text="&#xE76C;"
+                                                           FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="8"
+                                                           Foreground="#777777"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,0,4,0"
+                                                           RenderTransformOrigin="0.5,0.5">
+                                                    <TextBlock.RenderTransform>
+                                                        <RotateTransform Angle="0"/>
+                                                    </TextBlock.RenderTransform>
+                                                </TextBlock>
+                                                <ContentPresenter VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="toggleBorder" Property="Background" Value="#2A2A2A"/>
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="arrow" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="90"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="expanderContent"/>
+                        </DockPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="False">
+                                <Setter TargetName="expanderContent" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- File tab button style -->
         <Style x:Key="FileTabButtonStyle" TargetType="Button">
-            <Setter Property="Margin" Value="2,0,2,0"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="BorderThickness" Value="0,2,0,0"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#8F8F8F"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="#272822"/>
+            <Setter Property="Background" Value="#1E1E1E"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"/>
@@ -55,7 +135,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#3F3F46"/>
+                    <Setter Property="Background" Value="#2A2A2A"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -70,8 +150,9 @@
                     <Style TargetType="Button" BasedOn="{StaticResource FileTabButtonStyle}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter Property="Background"
-                                        Value="#FFFFFF28"/>
+                                <Setter Property="Background" Value="#272822"/>
+                                <Setter Property="Foreground" Value="#F8F8F2"/>
+                                <Setter Property="BorderBrush" Value="#66D9EF"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -94,8 +175,14 @@
                 <Menu>
                     <MenuItem Header="File">
                         <MenuItem Header="Open Folder" Command="{Binding OpenFolderCommand}"/>
+                        <MenuItem Header="Refresh" Command="{Binding RefreshCommand}"/>
                         <Separator/>
                         <MenuItem Header="Exit" Command="{Binding ExitCommand}"/>
+                    </MenuItem>
+                    <MenuItem Header="View">
+                        <MenuItem Header="Grade Overview"
+                                  IsCheckable="True"
+                                  IsChecked="{Binding IsGradeOverviewVisible, Mode=TwoWay}"/>
                     </MenuItem>
                 </Menu>
             </ui:TitleBar.Header>
@@ -120,12 +207,31 @@
                 </Grid.RowDefinitions>
 
                 <DockPanel Grid.Row="0">
-                    <TextBlock DockPanel.Dock="Top" Text="STUDENTS" Foreground="#999999"
-                               Margin="5,4,5,4" FontWeight="Bold" FontSize="11"/>
+                    <DockPanel DockPanel.Dock="Top" Margin="5,2,2,4">
+                        <TextBlock Text="STUDENTS" Foreground="#999999"
+                                   VerticalAlignment="Center"
+                                   FontWeight="Bold" FontSize="11"/>
+                        <Button DockPanel.Dock="Right"
+                                Command="{Binding RefreshCommand}"
+                                ToolTip="Refresh (reload folders and grade sheets)"
+                                Width="22" Height="22"
+                                Padding="0"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                HorizontalAlignment="Right">
+                            <TextBlock Text="&#xE72C;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="12"
+                                       Foreground="#999999"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Button>
+                    </DockPanel>
                     <ListBox x:Name="listBoxStudents"
-                             ItemsSource="{Binding Students}"
+                             ItemsSource="{Binding Source={StaticResource GroupedStudents}}"
                              SelectedItem="{Binding SelectedStudent, Mode=TwoWay}"
                              ItemContainerStyle="{StaticResource CompactListBoxItem}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              Margin="5,0,5,0"
                              Foreground="#FF999999">
                         <ListBox.ItemTemplate>
@@ -133,6 +239,31 @@
                                 <TextBlock Text="{Binding FullName}" FontSize="12" Foreground="#999999"/>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
+                        <ListBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="{x:Type GroupItem}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                    <Expander IsExpanded="True"
+                                                              Style="{StaticResource SectionExpanderStyle}"
+                                                              Margin="0,1,0,0">
+                                                        <Expander.Header>
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       FontWeight="Bold"
+                                                                       FontSize="11"
+                                                                       Foreground="#999999"/>
+                                                        </Expander.Header>
+                                                        <ItemsPresenter/>
+                                                    </Expander>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+                        </ListBox.GroupStyle>
                         <ListBox.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Open in File Explorer"
@@ -179,14 +310,14 @@
             <DockPanel Grid.Column="2">
 
                 <!-- Tab bar -->
-                <DockPanel DockPanel.Dock="Top" Background="#272822">
+                <DockPanel DockPanel.Dock="Top" Background="#1E1E1E">
                     <Button x:Name="buttonOpenGrading"
                             DockPanel.Dock="Right"
                             Width="28" Height="28"
                             Padding="0"
                             ToolTip="Open Grading Panel"
                             Command="{Binding ToggleSidePanelCommand}"
-                            Background="#272822"
+                            Background="#1E1E1E"
                             BorderThickness="0"
                             VerticalAlignment="Center">
                         <TextBlock Text="&#xE762;"
@@ -201,7 +332,7 @@
                         <ItemsControl ItemsSource="{Binding FileTabs}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" Background="#272822"/>
+                                    <StackPanel Orientation="Horizontal" Background="#1E1E1E"/>
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
@@ -257,6 +388,21 @@
                                        HorizontalAlignment="Center"
                                        Foreground="#F8F8F2"/>
                         </StackPanel>
+                    </Border>
+
+                    <!-- Grade Overview overlay -->
+                    <Border x:Name="gradeOverviewOverlay">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsGradeOverviewVisible}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <views:GradeOverviewView DataContext="{Binding GradeOverviewVM}"/>
                     </Border>
                 </Grid>
             </DockPanel>
