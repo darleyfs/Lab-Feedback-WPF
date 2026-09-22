@@ -42,17 +42,20 @@
 
         <!-- File tab button style -->
         <Style x:Key="FileTabButtonStyle" TargetType="Button">
-            <Setter Property="Margin" Value="2,0,2,0"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="BorderThickness" Value="0,2,0,0"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#8F8F8F"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="#272822"/>
+            <Setter Property="Background" Value="#1E1E1E"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"/>
@@ -62,7 +65,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#3F3F46"/>
+                    <Setter Property="Background" Value="#2A2A2A"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -77,8 +80,9 @@
                     <Style TargetType="Button" BasedOn="{StaticResource FileTabButtonStyle}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter Property="Background"
-                                        Value="#FFFFFF28"/>
+                                <Setter Property="Background" Value="#272822"/>
+                                <Setter Property="Foreground" Value="#F8F8F2"/>
+                                <Setter Property="BorderBrush" Value="#66D9EF"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -235,14 +239,14 @@
             <DockPanel Grid.Column="2">
 
                 <!-- Tab bar -->
-                <DockPanel DockPanel.Dock="Top" Background="#272822">
+                <DockPanel DockPanel.Dock="Top" Background="#1E1E1E">
                     <Button x:Name="buttonOpenGrading"
                             DockPanel.Dock="Right"
                             Width="28" Height="28"
                             Padding="0"
                             ToolTip="Open Grading Panel"
                             Command="{Binding ToggleSidePanelCommand}"
-                            Background="#272822"
+                            Background="#1E1E1E"
                             BorderThickness="0"
                             VerticalAlignment="Center">
                         <TextBlock Text="&#xE762;"
@@ -257,7 +261,7 @@
                         <ItemsControl ItemsSource="{Binding FileTabs}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" Background="#272822"/>
+                                    <StackPanel Orientation="Horizontal" Background="#1E1E1E"/>
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
