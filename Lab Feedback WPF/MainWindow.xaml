@@ -5,9 +5,16 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
     xmlns:vm="clr-namespace:Lab_Feedback_WPF.ViewModels"
+    xmlns:views="clr-namespace:Lab_Feedback_WPF.Views"
     Title="Lab Feedback" Height="800" Width="1200">
 
     <ui:FluentWindow.Resources>
+
+        <CollectionViewSource x:Key="GroupedStudents" Source="{Binding Students}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Section"/>
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
 
         <Style x:Key="CompactListBoxItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="4,2"/>
@@ -97,6 +104,11 @@
                         <Separator/>
                         <MenuItem Header="Exit" Command="{Binding ExitCommand}"/>
                     </MenuItem>
+                    <MenuItem Header="View">
+                        <MenuItem Header="Grade Overview"
+                                  IsCheckable="True"
+                                  IsChecked="{Binding IsGradeOverviewVisible, Mode=TwoWay}"/>
+                    </MenuItem>
                 </Menu>
             </ui:TitleBar.Header>
         </ui:TitleBar>
@@ -123,7 +135,7 @@
                     <TextBlock DockPanel.Dock="Top" Text="STUDENTS" Foreground="#999999"
                                Margin="5,4,5,4" FontWeight="Bold" FontSize="11"/>
                     <ListBox x:Name="listBoxStudents"
-                             ItemsSource="{Binding Students}"
+                             ItemsSource="{Binding Source={StaticResource GroupedStudents}}"
                              SelectedItem="{Binding SelectedStudent, Mode=TwoWay}"
                              ItemContainerStyle="{StaticResource CompactListBoxItem}"
                              Margin="5,0,5,0"
@@ -133,6 +145,31 @@
                                 <TextBlock Text="{Binding FullName}" FontSize="12" Foreground="#999999"/>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
+                        <ListBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="{x:Type GroupItem}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                    <Expander IsExpanded="True"
+                                                              Foreground="#999999"
+                                                              Margin="0,4,0,0">
+                                                        <Expander.Header>
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       FontWeight="Bold"
+                                                                       FontSize="11"
+                                                                       Foreground="#999999"/>
+                                                        </Expander.Header>
+                                                        <ItemsPresenter/>
+                                                    </Expander>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+                        </ListBox.GroupStyle>
                         <ListBox.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Open in File Explorer"
@@ -257,6 +294,21 @@
                                        HorizontalAlignment="Center"
                                        Foreground="#F8F8F2"/>
                         </StackPanel>
+                    </Border>
+
+                    <!-- Grade Overview overlay -->
+                    <Border x:Name="gradeOverviewOverlay">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsGradeOverviewVisible}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <views:GradeOverviewView DataContext="{Binding GradeOverviewVM}"/>
                     </Border>
                 </Grid>
             </DockPanel>

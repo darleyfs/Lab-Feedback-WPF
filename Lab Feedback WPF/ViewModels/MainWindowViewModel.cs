@@ -18,6 +18,7 @@ namespace Lab_Feedback_WPF.ViewModels
         private string _selectedFileContent = string.Empty;
         private bool _isSidePanelOpen;
         private bool _isEmptyState = true;
+        private bool _isGradeOverviewVisible;
         private string _statusBuilds = "0";
         private string _statusScore = "0";
         private int _violationCount;
@@ -32,6 +33,7 @@ namespace Lab_Feedback_WPF.ViewModels
         public ObservableCollection<FileTabViewModel> FileTabs { get; } = new();
 
         public GradingViewModel GradingVM { get; } = new();
+        public GradeOverviewViewModel GradeOverviewVM { get; } = new();
 
         public MainWindowViewModel(Func<IExtractionProgress>? progressFactory = null)
         {
@@ -84,6 +86,7 @@ namespace Lab_Feedback_WPF.ViewModels
                     value.IsSelected = true;
                     SelectedFileContent = File.ReadAllText(value.FilePath);
                     IsEmptyState = false;
+                    IsGradeOverviewVisible = false;
                 }
                 UpdateViolations();
             }
@@ -105,6 +108,12 @@ namespace Lab_Feedback_WPF.ViewModels
         {
             get => _isEmptyState;
             set => SetField(ref _isEmptyState, value);
+        }
+
+        public bool IsGradeOverviewVisible
+        {
+            get => _isGradeOverviewVisible;
+            set => SetField(ref _isGradeOverviewVisible, value);
         }
 
         public string StatusBuilds
@@ -178,10 +187,25 @@ namespace Lab_Feedback_WPF.ViewModels
             var dialog = new System.Windows.Forms.FolderBrowserDialog();
             if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
 
-            var students = Student.GetStudentsFromFolders(dialog.SelectedPath);
+            var students = Student.GetStudentsFromFolders(dialog.SelectedPath)
+                .OrderBy(s => s.Section, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(s => s.LastName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
             Students.Clear();
             foreach (var s in students)
                 Students.Add(s);
+
+            var sections = students
+                .Select(s => s.Section)
+                .Where(s => !string.IsNullOrEmpty(s))
+                .Distinct()
+                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (sections.Count > 0)
+                GradeOverviewVM.Load(dialog.SelectedPath, sections);
+            else
+                GradeOverviewVM.Clear();
         }
 
         private async void LoadStudentAsync(Student? student)
