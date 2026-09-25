@@ -19,6 +19,8 @@ namespace Lab_Feedback_WPF.ViewModels
         private int _alreadyRescheduled;
         private int _needRescheduling;
         private bool _rescheduleFileFound;
+        private string _instructor = string.Empty;
+        private string _copyStatus = string.Empty;
 
         public ObservableCollection<GradeRecord> Records { get; } = new();
         public ObservableCollection<SectionCheckStatus> SectionChecks { get; } = new();
@@ -31,16 +33,22 @@ namespace Lab_Feedback_WPF.ViewModels
         public int AlreadyRescheduled { get => _alreadyRescheduled; private set => SetField(ref _alreadyRescheduled, value); }
         public int NeedRescheduling { get => _needRescheduling; private set => SetField(ref _needRescheduling, value); }
 
-        /// <summary>Whether the single class-wide reschedule CSV was found at the root folder.</summary>
+        /// <summary>Whether at least one class-wide reschedule CSV was found at the root folder.</summary>
         public bool RescheduleFileFound { get => _rescheduleFileFound; private set => SetField(ref _rescheduleFileFound, value); }
+
+        /// <summary>Instructor name written into the Instructor column of copied reschedule rows.</summary>
+        public string Instructor { get => _instructor; set => SetField(ref _instructor, value); }
+
+        /// <summary>Feedback from the last copy action (e.g. "Copied 3 rows").</summary>
+        public string CopyStatus { get => _copyStatus; private set => SetField(ref _copyStatus, value); }
 
         public ICommand CopySelectedCommand { get; }
         public ICommand CopyNeedRescheduleCommand { get; }
 
         public GradeOverviewViewModel()
         {
-            CopySelectedCommand = new RelayCommand<IList>(CopySelected);
-            CopyNeedRescheduleCommand = new RelayCommand(CopyNeedReschedule);
+            CopySelectedCommand = new RelayCommand<IList>(CopySelected, selected => selected?.Count > 0);
+            CopyNeedRescheduleCommand = new RelayCommand(CopyNeedReschedule, () => NeedRescheduling > 0);
         }
 
         public void Load(string rootPath, IEnumerable<string> sectionFolderNames)
@@ -82,23 +90,45 @@ namespace Lab_Feedback_WPF.ViewModels
             Inactive = Records.Count(r => r.Status == GradeStatus.Inactive);
             AlreadyRescheduled = Records.Count(r => r.AlreadyRescheduled);
             NeedRescheduling = Records.Count(r => r.NeedsReschedule);
+            CopyStatus = string.Empty;
+            CommandManager.InvalidateRequerySuggested();
         }
 
-        private static void CopySelected(IList? selected)
+        private void CopySelected(IList? selected)
         {
             if (selected == null || selected.Count == 0) return;
 
-            var lines = selected.Cast<GradeRecord>().Select(r => $"{r.Name}\t{r.Id}");
-            Clipboard.SetText(string.Join("\n", lines));
+            CopyRows(selected.Cast<GradeRecord>().ToList());
         }
 
-        private void CopyNeedReschedule()
-        {
-            var lines = Records.Where(r => r.NeedsReschedule).Select(r => $"{r.Name}\t{r.Id}");
-            var text = string.Join("\n", lines);
+        private void CopyNeedReschedule() => CopyRows(Records.Where(r => r.NeedsReschedule).ToList());
 
-            if (!string.IsNullOrEmpty(text))
-                Clipboard.SetText(text);
+        private void CopyRows(List<GradeRecord> records)
+        {
+            if (records.Count == 0)
+            {
+                CopyStatus = "Nothing to copy";
+                return;
+            }
+
+            var text = string.Join("\n", records.Select(r => r.ToRescheduleRow(Instructor)));
+
+            // Retries cover the clipboard being briefly locked by another app.
+            for (var attempt = 0; attempt < 10; attempt++)
+            {
+                try
+                {
+                    Clipboard.SetDataObject(text, true);
+                    CopyStatus = records.Count == 1 ? "Copied 1 row" : $"Copied {records.Count} rows";
+                    return;
+                }
+                catch (System.Runtime.InteropServices.ExternalException)
+                {
+                    Thread.Sleep(50);
+                }
+            }
+
+            CopyStatus = "Clipboard busy — try again";
         }
     }
 }
