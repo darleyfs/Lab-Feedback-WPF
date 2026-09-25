@@ -212,10 +212,13 @@ namespace Lab_Feedback_WPF.ViewModels
             foreach (var s in students)
                 Students.Add(s);
 
+            // Sections come from student folders and from any subfolder holding a gradebook CSV,
+            // so the overview lists every gradebook student even without submission folders.
             var sections = students
                 .Select(s => s.Section)
                 .Where(s => !string.IsNullOrEmpty(s))
-                .Distinct()
+                .Concat(GradebookService.FindSectionsWithGradebooks(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 

@@ -5,7 +5,7 @@ namespace Lab_Feedback_WPF.Services
 {
     /// <summary>
     /// Loads reschedule-relevant grade data by parsing each section's gradebook CSV and the
-    /// single class-wide reschedule CSV (found at the root folder, shared across all sections).
+    /// class-wide reschedule CSV(s) (found at the root folder, shared across all sections).
     /// </summary>
     public static class GradebookService
     {
@@ -15,20 +15,27 @@ namespace Lab_Feedback_WPF.Services
         };
 
         /// <summary>
-        /// Finds and parses the single class-wide reschedule CSV directly in <paramref name="rootFolder"/>.
+        /// Finds and parses every class-wide reschedule CSV directly in <paramref name="rootFolder"/>.
+        /// A CSV qualifies by its contents (a "Student Name" / "Student ID" header row), not its
+        /// file name; IDs from all qualifying files are merged.
         /// </summary>
         public static (HashSet<string> RescheduledIds, bool Found) LoadRescheduleList(string rootFolder)
         {
+            var ids = new HashSet<string>();
             if (!Directory.Exists(rootFolder))
-                return (new HashSet<string>(), false);
+                return (ids, false);
 
-            var rescheduleFile = Directory.GetFiles(rootFolder, "*.csv", SearchOption.TopDirectoryOnly)
-                .FirstOrDefault(f => Path.GetFileName(f).Contains("reschedul", StringComparison.OrdinalIgnoreCase));
+            var found = false;
+            foreach (var file in Directory.GetFiles(rootFolder, "*.csv", SearchOption.TopDirectoryOnly))
+            {
+                if (TryLoadRescheduledIds(file, out var fileIds))
+                {
+                    found = true;
+                    ids.UnionWith(fileIds);
+                }
+            }
 
-            if (rescheduleFile == null)
-                return (new HashSet<string>(), false);
-
-            return (LoadRescheduledIds(rescheduleFile), true);
+            return (ids, found);
         }
 
         /// <summary>
@@ -41,9 +48,7 @@ namespace Lab_Feedback_WPF.Services
             var records = new List<GradeRecord>();
             if (!Directory.Exists(sectionFolder)) return (records, false);
 
-            var gradebookFiles = Directory.GetFiles(sectionFolder, "*.csv", SearchOption.TopDirectoryOnly)
-                .Where(f => Path.GetFileName(f).Contains("gradebook", StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            var gradebookFiles = GetGradebookFiles(sectionFolder);
 
             foreach (var gradebookFile in gradebookFiles)
                 records.AddRange(ParseGradebook(gradebookFile, sectionName, rescheduledIds));
@@ -51,12 +56,51 @@ namespace Lab_Feedback_WPF.Services
             return (records, gradebookFiles.Count > 0);
         }
 
-        private static HashSet<string> LoadRescheduledIds(string filePath)
+        /// <summary>
+        /// Names of the subfolders of <paramref name="rootFolder"/> that contain a gradebook CSV,
+        /// so a section shows up in the overview even when it has no student folders.
+        /// </summary>
+        public static List<string> FindSectionsWithGradebooks(string rootFolder)
         {
-            var ids = new HashSet<string>();
+            if (!Directory.Exists(rootFolder)) return new List<string>();
 
-            var (_, rows) = CsvUtils.ParseWithHeader(filePath,
-                headerDetector: fields => fields.Contains("Student Name") && fields.Any(f => f.Contains("Student ID")));
+            return Directory.GetDirectories(rootFolder)
+                .Where(d => GetGradebookFiles(d).Count > 0)
+                .Select(Path.GetFileName)
+                .OfType<string>()
+                .ToList();
+        }
+
+        private static List<string> GetGradebookFiles(string folder) =>
+            Directory.GetFiles(folder, "*.csv", SearchOption.TopDirectoryOnly)
+                .Where(f => Path.GetFileName(f).Contains("gradebook", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+        private static bool IsRescheduleHeader(string[] fields) =>
+            fields.Contains("Student Name") && fields.Any(f => f.Contains("Student ID"));
+
+        /// <summary>
+        /// Parses <paramref name="filePath"/> as a reschedule CSV. Returns false if the file has no
+        /// reschedule header row or can't be read (e.g. locked by Excel).
+        /// </summary>
+        private static bool TryLoadRescheduledIds(string filePath, out HashSet<string> ids)
+        {
+            ids = new HashSet<string>();
+
+            string[] headers;
+            List<Dictionary<string, string>> rows;
+            try
+            {
+                (headers, rows) = CsvUtils.ParseWithHeader(filePath, headerDetector: IsRescheduleHeader);
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+
+            // ParseWithHeader falls back to the first line when no header matches.
+            if (!IsRescheduleHeader(headers))
+                return false;
 
             foreach (var row in rows)
             {
@@ -70,7 +114,7 @@ namespace Lab_Feedback_WPF.Services
                 }
             }
 
-            return ids;
+            return true;
         }
 
         private static IEnumerable<GradeRecord> ParseGradebook(

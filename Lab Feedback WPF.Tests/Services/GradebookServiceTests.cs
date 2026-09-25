@@ -124,6 +124,47 @@ public class GradebookServiceTests
     }
 
     [TestMethod]
+    public void LoadRescheduleList_AnyFileNameWithMatchingFormat_IsAccepted()
+    {
+        File.WriteAllText(Path.Combine(_folder, "Week 5 export.csv"),
+            "Exported 9/23/2026\n" +
+            "Student Name,Student ID#,Reason\n" +
+            "Smith John,0001234567,Illness\n");
+
+        var (ids, found) = GradebookService.LoadRescheduleList(_folder);
+
+        Assert.IsTrue(found);
+        Assert.IsTrue(ids.Contains(GradeRecord.NormalizeId("0001234567")));
+    }
+
+    [TestMethod]
+    public void LoadRescheduleList_CsvWithoutRescheduleHeader_IsIgnored()
+    {
+        File.WriteAllText(Path.Combine(_folder, "reschedules.csv"),
+            "ID,Activity,Actual Grade,Best Possible,Status\n" +
+            "0001234567,Smith John,0,40,ACTIVE\n");
+
+        var (ids, found) = GradebookService.LoadRescheduleList(_folder);
+
+        Assert.IsFalse(found);
+        Assert.AreEqual(0, ids.Count);
+    }
+
+    [TestMethod]
+    public void LoadRescheduleList_MultipleMatchingFiles_MergesIds()
+    {
+        File.WriteAllText(Path.Combine(_folder, "a.csv"),
+            "Student Name,Student ID#\nSmith John,0001234567\n");
+        File.WriteAllText(Path.Combine(_folder, "b.csv"),
+            "Student Name,Student ID\nDoe Jane,0007654321\n");
+
+        var (ids, found) = GradebookService.LoadRescheduleList(_folder);
+
+        Assert.IsTrue(found);
+        Assert.AreEqual(2, ids.Count);
+    }
+
+    [TestMethod]
     public void LoadRescheduleList_IdsApplyAcrossSections_WhenSharedWithLoadSection()
     {
         // The reschedule list is class-wide: one file at the root, cross-referenced
@@ -149,5 +190,27 @@ public class GradebookServiceTests
 
         Assert.IsTrue(records01.Single().AlreadyRescheduled);
         Assert.IsTrue(records04.Single().AlreadyRescheduled);
+    }
+
+    // -------------------------------------------------------------------------
+    // FindSectionsWithGradebooks
+    // -------------------------------------------------------------------------
+
+    [TestMethod]
+    public void FindSectionsWithGradebooks_IncludesSectionsWithoutStudentFolders()
+    {
+        var csvOnly = Path.Combine(_folder, "01");
+        Directory.CreateDirectory(csvOnly);
+        File.WriteAllText(Path.Combine(csvOnly, "Gradebook_01.csv"), "ID,Activity\n1,Alice\n");
+
+        var withStudents = Path.Combine(_folder, "04");
+        Directory.CreateDirectory(Path.Combine(withStudents, "Doe_Jane-0007654321"));
+        File.WriteAllText(Path.Combine(withStudents, "Gradebook_04.csv"), "ID,Activity\n2,Bob\n");
+
+        Directory.CreateDirectory(Path.Combine(_folder, "Empty"));
+
+        var sections = GradebookService.FindSectionsWithGradebooks(_folder);
+
+        CollectionAssert.AreEquivalent(new[] { "01", "04" }, sections);
     }
 }
