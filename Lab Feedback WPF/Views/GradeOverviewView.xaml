@@ -33,24 +33,57 @@
             <Setter Property="Foreground" Value="#98C379"/>
         </Style>
 
-        <!-- Row style: status color, overridden by AlreadyRescheduled -->
+        <!-- Subtle semi-transparent highlight tints, blended over the dark background -->
+        <SolidColorBrush x:Key="PassingRowBrush" Color="#98C379" Opacity="0.10"/>
+        <SolidColorBrush x:Key="TbdRowBrush" Color="#E5C07B" Opacity="0.10"/>
+        <SolidColorBrush x:Key="FailingRowBrush" Color="#E06C75" Opacity="0.12"/>
+        <SolidColorBrush x:Key="RescheduledRowBrush" Color="#C678DD" Opacity="0.12"/>
+
+        <!-- Row style: passing green, TBD yellow, failing + not on list red, failing + on list purple;
+             inactive rows keep the plain background with faded text -->
         <Style x:Key="GradeRowStyle" TargetType="DataGridRow">
             <Setter Property="Foreground" Value="#F8F8F2"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Style.Triggers>
-                <DataTrigger Binding="{Binding Status}" Value="{x:Static models:GradeStatus.Failing}">
-                    <Setter Property="Background" Value="#4A1F1F"/>
-                </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="{x:Static models:GradeStatus.Passing}">
-                    <Setter Property="Background" Value="#1F4A24"/>
+                    <Setter Property="Background" Value="{StaticResource PassingRowBrush}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="{x:Static models:GradeStatus.TBD}">
-                    <Setter Property="Background" Value="#4A461F"/>
+                    <Setter Property="Background" Value="{StaticResource TbdRowBrush}"/>
                 </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="{x:Static models:GradeStatus.Failing}">
+                    <Setter Property="Background" Value="{StaticResource FailingRowBrush}"/>
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding Status}" Value="{x:Static models:GradeStatus.Failing}"/>
+                        <Condition Binding="{Binding AlreadyRescheduled}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{StaticResource RescheduledRowBrush}"/>
+                </MultiDataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="{x:Static models:GradeStatus.Inactive}">
-                    <Setter Property="Background" Value="#3F3F46"/>
+                    <Setter Property="Foreground" Value="#75715E"/>
                 </DataTrigger>
-                <DataTrigger Binding="{Binding AlreadyRescheduled}" Value="True">
-                    <Setter Property="Background" Value="#3A2A54"/>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Summary counts: green at zero, otherwise red (Need Rescheduling) or yellow (TBD / pending) -->
+        <Style x:Key="NeedRescheduleValueStyle" TargetType="TextBlock" BasedOn="{StaticResource SummaryValueStyle}">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#E06C75"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding NeedRescheduling}" Value="0">
+                    <Setter Property="Foreground" Value="#98C379"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PendingValueStyle" TargetType="TextBlock" BasedOn="{StaticResource SummaryValueStyle}">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#E5C07B"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding TBD}" Value="0">
+                    <Setter Property="Foreground" Value="#98C379"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -110,7 +143,7 @@
                     <TextBlock Text="{Binding Passing}" Style="{StaticResource SummaryValueStyle}"/>
 
                     <TextBlock Text="TBD: " Style="{StaticResource SummaryLabelStyle}"/>
-                    <TextBlock Text="{Binding TBD}" Style="{StaticResource SummaryValueStyle}"/>
+                    <TextBlock Text="{Binding TBD}" Style="{StaticResource PendingValueStyle}"/>
 
                     <TextBlock Text="Inactive: " Style="{StaticResource SummaryLabelStyle}"/>
                     <TextBlock Text="{Binding Inactive}" Style="{StaticResource SummaryValueStyle}"/>
@@ -119,8 +152,7 @@
                     <TextBlock Text="{Binding AlreadyRescheduled}" Style="{StaticResource SummaryValueStyle}"/>
 
                     <TextBlock Text="Need Rescheduling: " Style="{StaticResource SummaryLabelStyle}"/>
-                    <TextBlock Text="{Binding NeedRescheduling}" Style="{StaticResource SummaryValueStyle}"
-                               Foreground="#F9266E" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding NeedRescheduling}" Style="{StaticResource NeedRescheduleValueStyle}"/>
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -207,7 +239,6 @@
                   SelectionUnit="FullRow"
                   GridLinesVisibility="Horizontal"
                   Background="#272822"
-                  RowBackground="#272822"
                   Foreground="#F8F8F2"
                   BorderThickness="0"
                   RowStyle="{StaticResource GradeRowStyle}">
