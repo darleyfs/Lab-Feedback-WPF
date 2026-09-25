@@ -390,7 +390,7 @@ namespace Lab_Feedback_WPF.ViewModels
                 sb.AppendLine($"            <span style=\"display: {(passed ? "inline" : "none")};\"> ✓</span>");
                 sb.AppendLine("        </li>");
                 sb.AppendLine("    </ul>");
-                sb.AppendLine($"    <table style=\"display: {((!passed || hasComments) ? "table" : "none")}; margin-bottom: 12px;\">");
+                sb.AppendLine($"    <table style=\"display: {(hasComments ? "table" : "none")}; margin-bottom: 12px;\">");
                 sb.AppendLine("        <tbody><tr><td>");
                 sb.AppendLine(hasComments ? $"            <p>{test.Comments}</p>" : "            <p></p>");
                 sb.AppendLine("        </td></tr></tbody>");
