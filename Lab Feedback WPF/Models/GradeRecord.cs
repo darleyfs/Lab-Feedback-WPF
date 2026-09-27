@@ -36,6 +36,16 @@ namespace Lab_Feedback_WPF.Models
 
         public bool NeedsReschedule => Status == GradeStatus.Failing && !AlreadyRescheduled;
 
+        /// <summary>Section 00 is the on-campus section; every other section is online.</summary>
+        public string Modality => int.TryParse(Section, out var n) && n == 0 ? "CAMPUS" : "ONLINE";
+
+        /// <summary>
+        /// One tab-separated row matching the reschedule sheet's columns
+        /// (Student Name, Student ID#, Lecture or Online, Comments, Instructor), with Comments left blank.
+        /// </summary>
+        public string ToRescheduleRow(string? instructor) =>
+            $"{Name}\t{Id}\t{Modality}\t\t{instructor?.Trim()}";
+
         public string RescheduleStatusText
         {
             get

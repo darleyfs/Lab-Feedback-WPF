@@ -172,7 +172,14 @@
         <!-- Title Bar -->
         <ui:TitleBar Grid.Row="0" Title="Lab Feedback">
             <ui:TitleBar.Header>
-                <Menu>
+                <Menu Padding="0" VerticalAlignment="Center">
+                    <Menu.Resources>
+                        <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                            <Setter Property="FontSize" Value="12"/>
+                            <Setter Property="Padding" Value="8,4"/>
+                            <Setter Property="MinHeight" Value="0"/>
+                        </Style>
+                    </Menu.Resources>
                     <MenuItem Header="File">
                         <MenuItem Header="Open Folder" Command="{Binding OpenFolderCommand}"/>
                         <MenuItem Header="Refresh" Command="{Binding RefreshCommand}"/>

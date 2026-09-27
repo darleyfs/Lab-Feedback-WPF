@@ -92,4 +92,25 @@ public class GradeRecordTests
         var record = new GradeRecord("01", "Doe Jane", "123", GradeStatus.Failing, 0, 10, alreadyRescheduled: true);
         Assert.AreEqual("On Reschedule List", record.RescheduleStatusText);
     }
+
+    [TestMethod]
+    [DataRow("00", "CAMPUS")]
+    [DataRow("01", "ONLINE")]
+    [DataRow("04", "ONLINE")]
+    [DataRow("", "ONLINE")]
+    public void Modality_Section00IsCampus_OthersOnline(string section, string expected)
+    {
+        var record = new GradeRecord(section, "Smith John", "1234567", GradeStatus.Failing, 0, 40, false);
+
+        Assert.AreEqual(expected, record.Modality);
+    }
+
+    [TestMethod]
+    public void ToRescheduleRow_MatchesRescheduleSheetColumns()
+    {
+        var record = new GradeRecord("00", "Smith John", "1234567", GradeStatus.Failing, 0, 40, false);
+
+        Assert.AreEqual("Smith John\t1234567\tCAMPUS\t\tDoug Arley", record.ToRescheduleRow(" Doug Arley "));
+        Assert.AreEqual("Smith John\t1234567\tCAMPUS\t\t", record.ToRescheduleRow(null));
+    }
 }
