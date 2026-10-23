@@ -49,3 +49,25 @@ _Avoid_: grade value, rating
 **Threshold**:
 The fewest requirements a rubric row must meet to reach a given level, e.g. "4 of 5" for Exemplary.
 _Avoid_: minimum, cutoff
+
+## Feedback
+
+**Feedback**:
+The HTML a student receives for one submission: remarks, each rubric row or test, deductions, and the final grade.
+_Avoid_: report, output
+
+**Remarks**:
+The opening message at the top of the feedback.
+_Avoid_: intro, comments (comments belong to a single rubric row or test)
+
+**Deduction**:
+Points taken off the whole grade for breaking a course rule, such as multiple returns in a method.
+_Avoid_: penalty
+
+**Auto-zero**:
+A deduction that makes the grade 0, such as breaking the External Resource Policy.
+_Avoid_: violation
+
+**Bad submission**:
+An auto-zero for a submission that can't be graded; its remarks ask the student to resubmit.
+_Avoid_: invalid submission

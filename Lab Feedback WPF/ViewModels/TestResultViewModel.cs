@@ -46,7 +46,7 @@ namespace Lab_Feedback_WPF.ViewModels
 
         public bool HasComments => !string.IsNullOrEmpty(_comments);
 
-        public SolidColorBrush IndicatorColor => ScoreToBrush(_gradedPoints, PointsTotal);
+        public SolidColorBrush IndicatorColor => ScoreBrushes.For(FeedbackSheet.Band(_gradedPoints, PointsTotal));
 
         public event EventHandler? ScoreChanged;
 
@@ -73,17 +73,6 @@ namespace Lab_Feedback_WPF.ViewModels
                     GradedPoints = Model.PointsForLevel(_levelPercents);
                     OnPropertyChanged(nameof(LevelText));
                 };
-        }
-
-        private static SolidColorBrush ScoreToBrush(float graded, float total)
-        {
-            if (total <= 0) return new SolidColorBrush(Color.FromRgb(100, 100, 100));
-            return ((graded / total) * 100f) switch
-            {
-                >= 100f => new SolidColorBrush(Color.FromRgb(166, 226, 46)),
-                >= 70f => new SolidColorBrush(Color.FromRgb(253, 151, 31)),
-                _ => new SolidColorBrush(Color.FromRgb(249, 38, 114))
-            };
         }
     }
 }

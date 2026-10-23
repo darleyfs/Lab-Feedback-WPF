@@ -4,7 +4,6 @@ namespace Lab_Feedback_WPF.ViewModels
 {
     public class DeductionViewModel : ViewModelBase
     {
-        private bool _isApplied;
         private bool _isEnabled = true;
 
         public Deduction Model { get; }
@@ -15,15 +14,25 @@ namespace Lab_Feedback_WPF.ViewModels
 
         public bool IsApplied
         {
-            get => _isApplied;
+            get => Model.IsApplied;
             set
             {
-                if (SetField(ref _isApplied, value))
-                {
-                    Model.IsApplied = value;
-                    OnPropertyChanged(nameof(PointsText));
-                }
+                if (Model.IsApplied == value) return;
+                Model.IsApplied = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(PointsText));
+                Toggled?.Invoke(this, EventArgs.Empty);
             }
+        }
+
+        /// <summary>Raised when the grader ticks or unticks this deduction (not on Refresh).</summary>
+        public event EventHandler? Toggled;
+
+        /// <summary>Tells the UI the model was reset outside this view model (a new submission loaded).</summary>
+        public void Refresh()
+        {
+            OnPropertyChanged(nameof(IsApplied));
+            OnPropertyChanged(nameof(PointsText));
         }
 
         public bool IsEnabled
