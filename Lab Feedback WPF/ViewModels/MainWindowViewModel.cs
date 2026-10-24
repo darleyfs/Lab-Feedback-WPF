@@ -193,20 +193,7 @@ namespace Lab_Feedback_WPF.ViewModels
             foreach (var s in students)
                 Students.Add(s);
 
-            // Sections come from student folders and from any subfolder holding a gradebook CSV,
-            // so the overview lists every gradebook student even without submission folders.
-            var sections = students
-                .Select(s => s.Section)
-                .Where(s => !string.IsNullOrEmpty(s))
-                .Concat(GradebookService.FindSectionsWithGradebooks(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (sections.Count > 0)
-                GradeOverviewVM.Load(path, sections);
-            else
-                GradeOverviewVM.Clear();
+            GradeOverviewVM.Load(GradebookService.Load(path, students.Select(s => s.Section)));
         }
 
         private async void LoadStudentAsync(Student? student)
