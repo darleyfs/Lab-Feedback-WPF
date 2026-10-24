@@ -50,11 +50,29 @@ namespace Lab_Feedback_WPF.ViewModels
 
         public event EventHandler? ScoreChanged;
 
-        public TestResultViewModel(TestResult model)
+        // Rubric rows with requirements are graded by ticking requirements, not by typing points.
+        public IReadOnlyList<RequirementViewModel> Requirements { get; }
+        public bool HasRequirements => Model.HasRequirements;
+        public bool IsPointsEditable => !HasRequirements;
+        public bool ShowDescription => !HasRequirements;
+        public string LevelText => HasRequirements ? TestResult.LevelNames[Model.LevelIndex()] : string.Empty;
+
+        private readonly IReadOnlyList<float> _levelPercents;
+
+        public TestResultViewModel(TestResult model, IReadOnlyList<float> levelPercents)
         {
             Model = model;
+            _levelPercents = levelPercents;
             _gradedPoints = model.GradedPoints;
             _comments = model.Comments;
+
+            Requirements = model.Requirements.Select(r => new RequirementViewModel(r)).ToList();
+            foreach (var requirement in Requirements)
+                requirement.MetChanged += (_, _) =>
+                {
+                    GradedPoints = Model.PointsForLevel(_levelPercents);
+                    OnPropertyChanged(nameof(LevelText));
+                };
         }
 
         private static SolidColorBrush ScoreToBrush(float graded, float total)

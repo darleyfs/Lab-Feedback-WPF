@@ -7,6 +7,29 @@
 
     <UserControl.Resources>
 
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+
+        <!-- ── Requirement row (Practical rubric rows) ───────────────────── -->
+        <DataTemplate DataType="{x:Type vm:RequirementViewModel}">
+            <DockPanel Margin="0,0,0,4">
+                <CheckBox DockPanel.Dock="Left"
+                          IsChecked="{Binding IsMet}"
+                          VerticalAlignment="Top"
+                          Margin="0,0,8,0"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Label}"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Foreground="#B4B4B4"/>
+                    <TextBlock Text="{Binding Note}"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Foreground="#646464"
+                               Visibility="{Binding ShowNote, Converter={StaticResource BoolToVisibility}}"/>
+                </StackPanel>
+            </DockPanel>
+        </DataTemplate>
+
         <!-- ── Deduction row ─────────────────────────────────────────────── -->
         <DataTemplate DataType="{x:Type vm:DeductionViewModel}">
             <DockPanel Margin="0,0,16,6" IsEnabled="{Binding IsEnabled}">
@@ -64,7 +87,8 @@
                     <TextBlock Text="{Binding DisplayDescription}"
                                FontSize="11"
                                Margin="16,0,0,8"
-                               TextWrapping="Wrap">
+                               TextWrapping="Wrap"
+                               Visibility="{Binding ShowDescription, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="#B4B4B4"/>
@@ -78,10 +102,16 @@
                         </TextBlock.Style>
                     </TextBlock>
 
+                    <!-- Requirements: ticking them sets the row's level and points -->
+                    <ItemsControl ItemsSource="{Binding Requirements}"
+                                  Margin="16,0,0,8"
+                                  Visibility="{Binding HasRequirements, Converter={StaticResource BoolToVisibility}}"/>
+
                     <!-- Score row: indicator + slider + textbox + total -->
                     <DockPanel Margin="0,0,0,4">
                         <TextBox DockPanel.Dock="Right"
                                  Width="60"
+                                 IsReadOnly="{Binding HasRequirements}"
                                  Text="{Binding GradedPoints, StringFormat=F2, UpdateSourceTrigger=LostFocus}"
                                  Background="#1E1E1E"
                                  Foreground="#F8F8F2"
@@ -94,6 +124,11 @@
                                    Foreground="#646464"
                                    FontFamily="Consolas"
                                    VerticalAlignment="Center"/>
+                        <TextBlock DockPanel.Dock="Right"
+                                   Text="{Binding LevelText}"
+                                   Foreground="#B4B4B4"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"/>
                         <Border DockPanel.Dock="Left"
                                 Width="8" Height="8"
                                 CornerRadius="4"
@@ -101,6 +136,7 @@
                                 Margin="0,0,8,0"
                                 VerticalAlignment="Center"/>
                         <Slider Value="{Binding GradedPoints, Mode=TwoWay}"
+                                IsEnabled="{Binding IsPointsEditable}"
                                 Minimum="0"
                                 Maximum="{Binding PointsTotal}"
                                 IsSnapToTickEnabled="False"

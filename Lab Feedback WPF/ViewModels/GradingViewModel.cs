@@ -139,7 +139,7 @@ namespace Lab_Feedback_WPF.ViewModels
 
             foreach (var test in results.Results)
             {
-                var vm = new TestResultViewModel(test);
+                var vm = new TestResultViewModel(test, results.LevelPercents);
                 vm.ScoreChanged += (_, _) => UpdateTotalScore();
                 TestResults.Add(vm);
             }
@@ -374,8 +374,6 @@ namespace Lab_Feedback_WPF.ViewModels
                 var testId = test.Name.ToLower().Replace(" ", "_");
                 var passed = test.GradedPoints >= test.PointsTotal;
                 var scoreColor = passed ? "rgb(0, 199, 199)" : "rgb(161, 0, 0)";
-                var itemColor = passed ? "rgb(74, 145, 57)" : "rgb(151, 151, 151)";
-                var hasComments = !string.IsNullOrWhiteSpace(test.Comments);
                 var description = string.IsNullOrWhiteSpace(test.Description)
                     ? test.Name : test.Description;
 
@@ -384,17 +382,20 @@ namespace Lab_Feedback_WPF.ViewModels
                               $"<span style=\"color: {scoreColor};\">" +
                               $"{test.GradedPoints:F1}/{test.PointsTotal:F1}</span></strong>");
                 sb.AppendLine("    <ul class=\"output-list\">");
-                sb.AppendLine($"        <li class=\"{testId}-result\" " +
-                              $"style=\"color: {itemColor}; font-weight: {(passed ? "bold" : "normal")}; margin-top: 4px;\">");
-                sb.AppendLine($"            <span class=\"feedback\" style=\"display: inline;\">{description}</span>");
-                sb.AppendLine($"            <span style=\"display: {(passed ? "inline" : "none")};\"> ✓</span>");
-                sb.AppendLine("        </li>");
+                if (test.HasRequirements)
+                    foreach (var requirement in test.Requirements)
+                        AppendListItem(sb, $"{testId}-{requirement.Id}", requirement.Label, requirement.Met);
+                else
+                    AppendListItem(sb, $"{testId}-result", description, passed);
                 sb.AppendLine("    </ul>");
-                sb.AppendLine($"    <table style=\"display: {(hasComments ? "table" : "none")}; margin-bottom: 12px;\">");
-                sb.AppendLine("        <tbody><tr><td>");
-                sb.AppendLine(hasComments ? $"            <p>{test.Comments}</p>" : "            <p></p>");
-                sb.AppendLine("        </td></tr></tbody>");
-                sb.AppendLine("    </table>");
+                if (!string.IsNullOrWhiteSpace(test.Comments))
+                {
+                    sb.AppendLine("    <table style=\"margin-bottom: 12px;\">");
+                    sb.AppendLine("        <tbody><tr><td>");
+                    sb.AppendLine($"            <p>{test.Comments}</p>");
+                    sb.AppendLine("        </td></tr></tbody>");
+                    sb.AppendLine("    </table>");
+                }
                 sb.AppendLine("</div>");
             }
             sb.AppendLine("</div>");
@@ -413,6 +414,16 @@ namespace Lab_Feedback_WPF.ViewModels
 
             sb.AppendLine($"<p>Final Grade: <span class=\"grade\">{finalGrade:F1}</span>/{possible:F0}</p>");
             return sb.ToString();
+        }
+
+        private static void AppendListItem(StringBuilder sb, string cssClass, string text, bool passed)
+        {
+            var itemColor = passed ? "rgb(74, 145, 57)" : "rgb(151, 151, 151)";
+            sb.AppendLine($"        <li class=\"{cssClass}\" " +
+                          $"style=\"color: {itemColor}; font-weight: {(passed ? "bold" : "normal")}; margin-top: 4px;\">");
+            sb.AppendLine($"            <span class=\"feedback\" style=\"display: inline;\">{text}</span>");
+            sb.AppendLine($"            <span style=\"display: {(passed ? "inline" : "none")};\"> ✓</span>");
+            sb.AppendLine("        </li>");
         }
     }
 }
