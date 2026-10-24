@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Lab_Feedback_WPF.Services
 {
-    public class ViolationsMatcher
+    internal class ViolationsMatcher
     {
         private List<string> _searchStrings;
 
@@ -15,139 +15,13 @@ namespace Lab_Feedback_WPF.Services
         }
 
         /// <summary>
-        /// Finds total number of instances of any search strings in the given text (case-sensitive)
-        /// </summary>
-        /// <param name="text">Text to search in</param>
-        /// <returns>Total count of all matches</returns>
-        public int CountMatches(string text)
-        {
-            return CountMatches(text, StringComparison.Ordinal);
-        }
-
-        /// <summary>
-        /// Finds total number of instances of any search strings in the given text
-        /// </summary>
-        /// <param name="text">Text to search in</param>
-        /// <param name="comparisonType">String comparison type (case-sensitive, case-insensitive, etc.)</param>
-        /// <returns>Total count of all matches</returns>
-        public int CountMatches(string text, StringComparison comparisonType)
-        {
-            if (string.IsNullOrEmpty(text))
-                return 0;
-
-            var allMatches = GetAllMatches(text, comparisonType);
-            return allMatches.Count;
-        }
-
-        /// <summary>
-        /// Gets detailed match information including which strings were found and how many times
-        /// </summary>
-        /// <param name="text">Text to search in</param>
-        /// <param name="comparisonType">String comparison type</param>
-        /// <returns>Dictionary with search string as key and count as value</returns>
-        public Dictionary<string, int> GetMatchDetails(string text, StringComparison comparisonType = StringComparison.Ordinal)
-        {
-            var results = new Dictionary<string, int>();
-
-            if (string.IsNullOrEmpty(text))
-                return results;
-
-            var allMatches = GetAllMatches(text, comparisonType);
-
-            foreach (var match in allMatches)
-            {
-                if (results.ContainsKey(match.SearchString))
-                    results[match.SearchString]++;
-                else
-                    results[match.SearchString] = 1;
-            }
-
-            return results;
-        }
-
-        /// <summary>
-        /// Updates the list of search strings
-        /// </summary>
-        /// <param name="searchStrings">New list of strings to search for</param>
-        public void UpdateSearchStrings(List<string> searchStrings)
-        {
-            _searchStrings = searchStrings ?? throw new ArgumentNullException(nameof(searchStrings));
-        }
-
-        /// <summary>
-        /// Adds a new search string to the existing list
-        /// </summary>
-        /// <param name="searchString">String to add</param>
-        public void AddSearchString(string searchString)
-        {
-            if (!string.IsNullOrEmpty(searchString))
-            {
-                _searchStrings.Add(searchString);
-            }
-        }
-
-        /// <summary>
-        /// Gets the current list of search strings
-        /// </summary>
-        public List<string> GetSearchStrings()
-        {
-            return new List<string>(_searchStrings);
-        }
-
-        /// <summary>
-        /// Gets the context around each match as a single formatted string
-        /// </summary>
-        /// <param name="text">Text to search in</param>
-        /// <param name="contextLength">Number of characters to show before and after each match</param>
-        /// <param name="comparisonType">String comparison type</param>
-        /// <returns>Formatted string showing all matches with their context</returns>
-        public string GetMatchesWithContext(string text, int contextLength = 30, StringComparison comparisonType = StringComparison.Ordinal)
-        {
-            if (string.IsNullOrEmpty(text))
-                return "No text provided.";
-
-            var allMatches = GetAllMatches(text, comparisonType);
-
-            if (allMatches.Count == 0)
-                return "No matches found.";
-
-            var result = new System.Text.StringBuilder();
-            result.AppendLine($"Found {allMatches.Count} match(es):\n");
-
-            for (int i = 0; i < allMatches.Count; i++)
-            {
-                var match = allMatches[i];
-
-                // Calculate context boundaries
-                int contextStart = Math.Max(0, match.Position - contextLength);
-                int contextEnd = Math.Min(text.Length, match.Position + match.Length + contextLength);
-
-                // Extract context
-                string beforeContext = text.Substring(contextStart, match.Position - contextStart);
-                string matchedText = text.Substring(match.Position, match.Length);
-                string afterContext = text.Substring(match.Position + match.Length, contextEnd - (match.Position + match.Length));
-
-                // Add ellipsis if context is truncated
-                string beforeEllipsis = contextStart > 0 ? "..." : "";
-                string afterEllipsis = contextEnd < text.Length ? "..." : "";
-
-                // Format the result
-                result.AppendLine($"Match #{i + 1}: '{match.SearchString}' at position {match.Position}");
-                result.AppendLine($"Context: {beforeEllipsis}{beforeContext}[{matchedText}]{afterContext}{afterEllipsis}");
-                result.AppendLine();
-            }
-
-            return result.ToString().TrimEnd();
-        }
-
-        /// <summary>
         /// Gets matches with context as a list of structured objects
         /// </summary>
         /// <param name="text">Text to search in</param>
         /// <param name="contextLength">Number of characters to show before and after each match</param>
         /// <param name="comparisonType">String comparison type</param>
         /// <returns>List of match context objects</returns>
-        public List<MatchContext> GetMatchContexts(string text, int contextLength = 30, StringComparison comparisonType = StringComparison.Ordinal)
+        private List<MatchContext> GetMatchContexts(string text, int contextLength = 30, StringComparison comparisonType = StringComparison.Ordinal)
         {
             var results = new List<MatchContext>();
 
@@ -417,7 +291,7 @@ namespace Lab_Feedback_WPF.Services
     /// <summary>
     /// Represents a match with its surrounding context
     /// </summary>
-    public class MatchContext
+    internal class MatchContext
     {
         public string SearchString { get; set; }
         public string MatchedText { get; set; }

@@ -3,7 +3,6 @@ using Lab_Feedback_WPF.Services;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -89,7 +88,7 @@ namespace Lab_Feedback_WPF.ViewModels
                     IsEmptyState = false;
                     IsGradeOverviewVisible = false;
                 }
-                UpdateViolations();
+                ShowViolations();
             }
         }
 
@@ -163,15 +162,6 @@ namespace Lab_Feedback_WPF.ViewModels
         public ICommand OpenAssignmentInExplorerCommand { get; }
         public ICommand ToggleSidePanelCommand { get; }
         public ICommand SelectTabCommand { get; }
-
-        // ─── Violation Terms ──────────────────────────────────────────────────
-
-        private static readonly List<string> ViolationTerms = new()
-        {
-            "&", "const", "static_cast", "reinterpret_cast", "dynamic_cast",
-            "resize()", "ignore()", "clear()", "auto", "try", "size_t", "goto",
-            "catch", "\0", "(...)", "var", "continue", "iterator"
-        };
 
         // ─── Folder / Student Loading ─────────────────────────────────────────
 
@@ -265,7 +255,11 @@ namespace Lab_Feedback_WPF.ViewModels
             }
 
             GradingVM.LoadResults(submission.Results ?? new LabResults(), _selectedStudent);
-            UpdateViolations();
+
+            _violations = ViolationCheck.Check(submission.StudentFiles
+                .Where(File.Exists)
+                .Select(f => KeyValuePair.Create(f, File.ReadAllText(f))));
+            ShowViolations();
         }
 
         private void ClearFileTabs()
@@ -274,58 +268,21 @@ namespace Lab_Feedback_WPF.ViewModels
             _selectedTab = null;
             SelectedFileContent = string.Empty;
             IsEmptyState = true;
-            ViolationLines = Enumerable.Empty<int>();
+            _violations = ViolationReport.Empty;
+            ShowViolations();
             GradingVM.Clear();
         }
 
         // ─── Violations ───────────────────────────────────────────────────────
 
-        private void UpdateViolations()
+        private ViolationReport _violations = ViolationReport.Empty;
+
+        private void ShowViolations()
         {
-            var matcher = new ViolationsMatcher(ViolationTerms);
-            var allViolations = new List<Violation>();
-
-            foreach (var tab in FileTabs)
-            {
-                if (!File.Exists(tab.FilePath)) continue;
-                var text = File.ReadAllText(tab.FilePath);
-                foreach (var v in matcher.GetViolations(text))
-                    allViolations.Add(new Violation(
-                        v.LineNumber, v.MatchedText, v.Context,
-                        $"{tab.FileName} — {v.LineContent}"));
-            }
-
-            if (_selectedTab != null && File.Exists(_selectedTab.FilePath))
-            {
-                var visibleText = File.ReadAllText(_selectedTab.FilePath);
-                ViolationLines = matcher.GetViolations(visibleText).Select(v => v.LineNumber).ToList();
-            }
-            else
-            {
-                ViolationLines = Enumerable.Empty<int>();
-            }
-
-            ViolationCount = allViolations.Count;
-
-            if (allViolations.Count > 0)
-            {
-                var sb = new StringBuilder();
-                sb.AppendLine($"Found {allViolations.Count} violation(s):\n");
-                foreach (var group in allViolations.GroupBy(v => v.LineContent.Split('—')[0].Trim()))
-                {
-                    sb.AppendLine($"── {group.Key}");
-                    foreach (var v in group)
-                        sb.AppendLine($"  Line {v.LineNumber}: '{v.MatchedText}'  {v.Context}");
-                    sb.AppendLine();
-                }
-                ViolationTooltip = sb.ToString().TrimEnd();
-            }
-            else
-            {
-                ViolationTooltip = string.Empty;
-            }
-
-            ViolationColor = allViolations.Count switch
+            ViolationLines = _selectedTab != null ? _violations.LinesIn(_selectedTab.FilePath) : Array.Empty<int>();
+            ViolationCount = _violations.Total;
+            ViolationTooltip = _violations.Summary;
+            ViolationColor = _violations.Total switch
             {
                 > 3 => Brushes.Red,
                 > 0 => Brushes.Orange,
