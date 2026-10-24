@@ -14,6 +14,24 @@ A free-form console program assignment graded against a rubric.
 One automated unit test in a Lab. Only Labs have tests.
 _Avoid_: using "test" for a Practical's rubric row
 
+## Submissions
+
+**Submission**:
+What a student turned in for one assignment, after unzipping and keeping only the latest attempt.
+_Avoid_: project, upload, attempt
+
+**Starter file**:
+A file from the course template that students don't write, such as `Utility.h` or `Console.cpp`. Starter files are hidden from the grader.
+_Avoid_: excluded file, template file
+
+**Primary file**:
+The student file shown first when a submission is opened.
+_Avoid_: main file
+
+**Build log**:
+The autograder's history of scores for a submission, one entry per build.
+_Avoid_: results file, hdkvkt
+
 ## Rubrics
 
 **Rubric row**:

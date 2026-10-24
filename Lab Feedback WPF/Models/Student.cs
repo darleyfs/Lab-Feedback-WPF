@@ -1,5 +1,4 @@
-﻿using Lab_Feedback_WPF.Services;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -28,7 +27,7 @@ namespace Lab_Feedback_WPF.Models
 
         public Student(string path, string? studentFolder)
         {
-            var cleanPath = FileHandler.GetSubfolderFromPath(path, studentFolder);
+            var cleanPath = GetSubfolderFromPath(path, studentFolder);
 
             var splitName = cleanPath?.Split('_');
 
@@ -36,6 +35,15 @@ namespace Lab_Feedback_WPF.Models
             FirstName = splitName[1].Split('-')[0];
             IdNumber = splitName[1].Split('-')[1];
             Folder = studentFolder;
+        }
+
+        private static string? GetSubfolderFromPath(string path, string? subFolder)
+        {
+            if (subFolder == null) return "";
+
+            var index = subFolder.IndexOf(path, StringComparison.Ordinal);
+
+            return index < 0 ? subFolder : subFolder.Remove(index, path.Length + 1);
         }
 
         /// <summary>

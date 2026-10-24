@@ -173,15 +173,6 @@ namespace Lab_Feedback_WPF.ViewModels
             "catch", "\0", "(...)", "var", "continue", "iterator"
         };
 
-        private static readonly List<string> FileExclusions = new()
-        {
-            "DONOTUSEANYTHINGINTHISFILE.h", "Source.h", "Helper.cpp", "Helper.h",
-            "Source.cpp", "Test.cpp", "Test.h", "Tester.cpp", "Tester.h",
-            "Utility.cpp", "Utility.h", "UI.h", "ShopUtils.cpp", "ShopUtils.h",
-            "LabUI.h", "resource.h", "LLMChecker.h", "ProgressBar.h", "Result.h",
-            "Results.h", "ResultsLib.h", "LabTestUtils.h", "Console.h", "Console.cpp"
-        };
-
         // ─── Folder / Student Loading ─────────────────────────────────────────
 
         private string? _lastOpenedPath;
@@ -231,45 +222,8 @@ namespace Lab_Feedback_WPF.ViewModels
         private async void LoadStudentAsync(Student? student)
         {
             if (student?.Folder == null) return;
-            var path = student.Folder;
 
-            var hasZipFiles = Directory.Exists(path) &&
-                              Directory.GetFiles(path, "*.zip", SearchOption.AllDirectories).Length > 0;
-
-            if (hasZipFiles)
-            {
-                var reporter = _progressFactory?.Invoke();
-
-                var submissionFolders = Directory.GetDirectories(path)
-                    .Where(d => Path.GetFileName(d)
-                        .StartsWith("submission_", StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(d => d)
-                    .ToList();
-
-                if (submissionFolders.Any())
-                {
-                    foreach (var folder in submissionFolders)
-                        await ZipFileHandler.ExtractZipFilesInFolderWithProgressAsync(folder, reporter);
-                }
-                else
-                {
-                    await ZipFileHandler.ExtractZipFilesInFolderWithProgressAsync(path, reporter);
-                }
-
-                if (reporter?.IsVisible == true)
-                    reporter.Close();
-            }
-
-            var hasSubmissionFolders = Directory.Exists(path) &&
-                Directory.GetDirectories(path)
-                    .Any(d => Path.GetFileName(d)
-                        .StartsWith("submission_", StringComparison.OrdinalIgnoreCase));
-
-            if (hasSubmissionFolders)
-                Assignment.ConsolidateSubmissions(path);
-
-            var assignments = Assignment.FindLabOrPracticalSubfolders(path)
-                .Where(a => !a.Folder!.Split(Path.DirectorySeparatorChar).Any(seg => seg == ".vs"));
+            var assignments = await Submissions.PrepareAsync(student.Folder, _progressFactory);
 
             Assignments.Clear();
             foreach (var a in assignments)
@@ -283,35 +237,24 @@ namespace Lab_Feedback_WPF.ViewModels
             ClearFileTabs();
 
             if (assignment?.Name == null || assignment.Folder == null) return;
-            var name = assignment.Name;
-            var path = assignment.Folder;
 
-            string? primaryFilePath = null;
-            var exclusions = new List<string>(FileExclusions);
+            var submission = Submissions.Open(assignment);
 
-            if (name.StartsWith("Lab ") || name.StartsWith("Midterm") || name.StartsWith("Final"))
+            foreach (var file in submission.StudentFiles)
+                FileTabs.Add(new FileTabViewModel(file));
+
+            StatusBuilds = submission.BuildLog?.Count.ToString() ?? "N/A";
+            StatusScore = submission.BuildLog?.LastOrDefault()?.Number.ToString() ?? "N/A";
+
+            foreach (var problem in submission.Problems)
+                MessageBox.Show(problem, assignment.Name);
+
+            if (submission.PrimaryFile != null)
             {
-                PopulateFileTabs(name, path, exclusions);
-
-                if (name.StartsWith("Lab "))
-                {
-                    var swh = FileHandler.SearchFile(path, "StudentWork.h");
-                    var sub = FileHandler.SearchFile(path, "Submission.cpp");
-                    if (swh != "") primaryFilePath = swh;
-                    if (sub != "") primaryFilePath = sub;
-                }
-                else if (name.StartsWith("Midterm"))
-                    primaryFilePath = FileHandler.SearchFile(path, "HighScore_Table.cpp");
-                else if (name.StartsWith("Final"))
-                    primaryFilePath = FileHandler.SearchFile(path, "RPG_Shop.cpp");
-            }
-
-            if (!string.IsNullOrEmpty(primaryFilePath))
-            {
-                SelectedFileContent = File.ReadAllText(primaryFilePath);
+                SelectedFileContent = File.ReadAllText(submission.PrimaryFile);
                 IsEmptyState = false;
 
-                var matchingTab = FileTabs.FirstOrDefault(t => t.FilePath == primaryFilePath);
+                var matchingTab = FileTabs.FirstOrDefault(t => t.FilePath == submission.PrimaryFile);
                 if (matchingTab != null)
                 {
                     if (_selectedTab != null) _selectedTab.IsSelected = false;
@@ -320,14 +263,8 @@ namespace Lab_Feedback_WPF.ViewModels
                     OnPropertyChanged(nameof(SelectedTab));
                 }
             }
-            else
-            {
-                MessageBox.Show("There may be a problem with the folder structure.", "Error opening file path.");
-                IsEmptyState = true;
-            }
 
-            var labResults = FileHandler.LoadLabResults(path);
-            GradingVM.LoadResults(labResults ?? new LabResults(), _selectedStudent);
+            GradingVM.LoadResults(submission.Results ?? new LabResults(), _selectedStudent);
             UpdateViolations();
         }
 
@@ -339,38 +276,6 @@ namespace Lab_Feedback_WPF.ViewModels
             IsEmptyState = true;
             ViolationLines = Enumerable.Empty<int>();
             GradingVM.Clear();
-        }
-
-        private void PopulateFileTabs(string name, string path, List<string> exclusions)
-        {
-            var resultsPath = FileHandler.SearchFile(path, "hdkvkt.txt");
-
-            if (name.StartsWith("Lab"))
-            {
-                exclusions.Add(name + ".cpp");
-                exclusions.Add(name.Replace(" ", "") + ".cpp");
-                SetResultStatusLabels(resultsPath, name);
-            }
-
-            foreach (var fp in FileHandler.SearchHeaderFiles(path, exclusions))
-                FileTabs.Add(new FileTabViewModel(fp));
-        }
-
-        private void SetResultStatusLabels(string resultsPath, string projectName)
-        {
-            if (resultsPath.Length > 0)
-            {
-                var results = FileHandler.ParseFile(resultsPath);
-                StatusBuilds = results.Count.ToString();
-                StatusScore = results.Count > 0 ? results[^1].Number.ToString() : "N/A";
-            }
-            else
-            {
-                MessageBox.Show($"Build logs not found for {projectName}.");
-                StatusBuilds = "N/A";
-                StatusScore = "N/A";
-                ViolationCount = 0;
-            }
         }
 
         // ─── Violations ───────────────────────────────────────────────────────
