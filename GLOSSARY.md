@@ -32,6 +32,16 @@ _Avoid_: main file
 The autograder's history of scores for a submission, one entry per build.
 _Avoid_: results file, hdkvkt
 
+## Violations
+
+**Violation**:
+A use, in a student file, of a language feature PG1 doesn't allow, such as `auto`, `goto` or `&`. Violations are evidence only: the grader still decides whether to tick the auto-zero.
+_Avoid_: match, hit
+
+**Banned term**:
+One entry in the list of features PG1 doesn't allow. Comments are ignored when looking for them.
+_Avoid_: search string, keyword
+
 ## Rubrics
 
 **Rubric row**:
