@@ -1,25 +1,23 @@
 using Lab_Feedback_WPF.Models;
 using System.Collections.ObjectModel;
-using System.Text;
 using System.Windows;
 using System.Windows.Media;
 
 namespace Lab_Feedback_WPF.ViewModels
 {
+    /// <summary>Binds the grading panel to a <see cref="FeedbackSheet"/>, which owns the grade rules.</summary>
     public class GradingViewModel : ViewModelBase
     {
+        private readonly FeedbackSheet _sheet = new();
         private string _studentName = string.Empty;
         private string _remarks = string.Empty;
         private string _labTitle = string.Empty;
         private string _totalScore = string.Empty;
         private string _totalPossible = string.Empty;
-        private SolidColorBrush _totalScoreColor = new(Color.FromRgb(166, 226, 46));
+        private SolidColorBrush _totalScoreColor = ScoreBrushes.For(ScoreBand.Full);
         private bool _isPlaceholderVisible = true;
         private bool _hasResults;
-        private bool _isAutoZero;
-        private bool _isBadSubmission;
         private string _lastAutoRemarks = string.Empty;
-        private LabResults? _results;
         private Student? _student;
 
         public ObservableCollection<DeductionViewModel> Deductions { get; } = new();
@@ -85,7 +83,7 @@ namespace Lab_Feedback_WPF.ViewModels
 
         public bool NoResultsVisible => !_hasResults;
 
-        public bool ControlsEnabled => !_isBadSubmission;
+        public bool ControlsEnabled => !_sheet.IsBadSubmission;
 
         public System.Windows.Input.ICommand CopyFeedbackCommand { get; }
 
@@ -95,23 +93,24 @@ namespace Lab_Feedback_WPF.ViewModels
         {
             CopyFeedbackCommand = new RelayCommand(
                 CopyFeedback,
-                () => _results != null || _isBadSubmission);
+                () => _sheet.IsLoaded || _sheet.IsBadSubmission);
 
-            InitDeductions();
+            foreach (var model in _sheet.Deductions)
+            {
+                var vm = new DeductionViewModel(model);
+                vm.Toggled += (_, _) => OnDeductionToggled(vm);
+                Deductions.Add(vm);
+            }
         }
 
         // ─── Public API ───────────────────────────────────────────────────────
 
         public void LoadResults(LabResults? results, Student? student = null)
         {
-            _isBadSubmission = false;
-            _isAutoZero = false;
-            _results = results;
             _student = student;
             _lastAutoRemarks = string.Empty;
-
-            foreach (var d in Deductions)
-                d.IsApplied = false;
+            _sheet.Load(results);
+            ResetDeductions();
 
             StudentName = student?.FirstName ?? string.Empty;
             IsPlaceholderVisible = false;
@@ -123,11 +122,7 @@ namespace Lab_Feedback_WPF.ViewModels
                 TotalScore = string.Empty;
                 TotalPossible = string.Empty;
                 HasResults = false;
-
-                var pct = CalculatePercentage();
-                var defaultRemarks = GetDefaultRemarks(pct);
-                Remarks = defaultRemarks;
-                _lastAutoRemarks = defaultRemarks;
+                SetRemarks(DefaultRemarks());
                 return;
             }
 
@@ -135,32 +130,22 @@ namespace Lab_Feedback_WPF.ViewModels
             LabTitle = results.Name;
 
             foreach (var test in results.Results)
-                test.GradedPoints = test.PointsReceived;
-
-            foreach (var test in results.Results)
             {
-                var vm = new TestResultViewModel(test);
+                var vm = new TestResultViewModel(test, results.LevelPercents);
                 vm.ScoreChanged += (_, _) => UpdateTotalScore();
                 TestResults.Add(vm);
             }
 
-            var percentage = CalculatePercentage();
-            Remarks = GetDefaultRemarks(percentage);
-            _lastAutoRemarks = Remarks;
-
+            SetRemarks(DefaultRemarks());
             UpdateTotalScore();
         }
 
         public void Clear()
         {
-            _results = null;
             _student = null;
-            _isBadSubmission = false;
-            _isAutoZero = false;
             _lastAutoRemarks = string.Empty;
-
-            foreach (var d in Deductions)
-                d.IsApplied = false;
+            _sheet.Clear();
+            ResetDeductions();
 
             LabTitle = string.Empty;
             TotalScore = string.Empty;
@@ -172,178 +157,60 @@ namespace Lab_Feedback_WPF.ViewModels
             TestResults.Clear();
         }
 
-        // ─── Deduction Setup ──────────────────────────────────────────────────
+        public string GenerateFeedbackHtml() => _sheet.ToHtml(StudentName, Remarks);
 
-        private void InitDeductions()
-        {
-            var models = new[]
-            {
-                new Deduction("Method has multiple returns",        10f),
-                new Deduction("Method lacks descriptive comments",  10f),
-                new Deduction("Violates external resource policy",   0f, isAutoZero: true),
-                new Deduction("Bad submission",                      0f, isAutoZero: true, isBadSubmission: true)
-            };
+        // ─── Deductions ───────────────────────────────────────────────────────
 
-            foreach (var model in models)
-            {
-                var vm = new DeductionViewModel(model);
-                vm.PropertyChanged += (s, e) =>
-                {
-                    if (e.PropertyName == nameof(DeductionViewModel.IsApplied))
-                        OnDeductionChanged(vm);
-                };
-                Deductions.Add(vm);
-            }
-        }
-
-        private void OnDeductionChanged(DeductionViewModel dvm)
-        {
-            if (dvm.IsBadSubmission)
-            {
-                if (dvm.IsApplied) ApplyBadSubmission();
-                else RemoveBadSubmission();
-            }
-            else if (dvm.IsAutoZero)
-            {
-                if (dvm.IsApplied) ApplyAutoZero();
-                else RemoveAutoZero();
-            }
-            else
-            {
-                UpdateTotalScore();
-            }
-        }
-
-        // ─── Auto-zero / Bad Submission ───────────────────────────────────────
-
-        private void ApplyAutoZero()
-        {
-            _isAutoZero = true;
-            var text =
-                "<p>Unfortunately, this assignment contains the const keyword, C++ references, and " +
-                "initializer lists. These are outlined as not being usable within the course within " +
-                "the External Research Use Policy. As a result, you will receive a 0 for this assignment.</p>\n\n" +
-                "<p>Doug</p>";
-            Remarks = text;
-            _lastAutoRemarks = text;
-            UpdateTotalScore();
-        }
-
-        private void RemoveAutoZero()
-        {
-            _isAutoZero = false;
-            var pct = CalculatePercentage();
-            var remarks = GetDefaultRemarks(pct);
-            Remarks = remarks;
-            _lastAutoRemarks = remarks;
-            UpdateTotalScore();
-        }
-
-        private void ApplyBadSubmission()
-        {
-            _isBadSubmission = true;
-            _isAutoZero = true;
-            SetDeductionsEnabled(false);
-            OnPropertyChanged(nameof(ControlsEnabled));
-
-            var firstName = _student?.FirstName ?? "Student";
-            var text =
-                $"<p>Hey {firstName},</p>\n\n" +
-                "<p>It looks like the project wasn't submitted correctly. Please send the full project, " +
-                "including the Solution (.sln or .slnx) file and all related folders and files. You might " +
-                "find it helpful to review the videos in the <em>Requiured Software</em> and <em>How to Complete " +
-                "Labs</em> assignments for more details on submitting your work.</p>\n\n" +
-                "<p>I've given you a 24-hour extension so you can resubmit the assignment. Once you've " +
-                "submitted the project correctly, I'll review your grade again.</p>\n\n" +
-                "<p>Let me know if you have any other questions.</p>\n" +
-                "<p>Doug</p>";
-            Remarks = text;
-            _lastAutoRemarks = text;
-            UpdateTotalScore();
-        }
-
-        private void RemoveBadSubmission()
-        {
-            _isBadSubmission = false;
-            _isAutoZero = false;
-            SetDeductionsEnabled(true);
-            OnPropertyChanged(nameof(ControlsEnabled));
-
-            var pct = CalculatePercentage();
-            var remarks = GetDefaultRemarks(pct);
-            Remarks = remarks;
-            _lastAutoRemarks = remarks;
-            UpdateTotalScore();
-        }
-
-        private void SetDeductionsEnabled(bool enabled)
+        private void ResetDeductions()
         {
             foreach (var d in Deductions)
-                d.IsEnabled = d.IsBadSubmission || enabled;
+            {
+                d.Refresh();
+                d.IsEnabled = true;
+            }
+            OnPropertyChanged(nameof(ControlsEnabled));
         }
 
-        // ─── Grade Calculation ────────────────────────────────────────────────
-
-        private float CalculateFinalGrade()
+        private void OnDeductionToggled(DeductionViewModel deduction)
         {
-            if (_isAutoZero) return 0f;
-            if (_results == null) return 0f;
+            if (deduction.IsBadSubmission)
+            {
+                // A bad submission can't be graded, so everything but its own checkbox locks.
+                foreach (var d in Deductions)
+                    d.IsEnabled = d.IsBadSubmission || !_sheet.IsBadSubmission;
+                OnPropertyChanged(nameof(ControlsEnabled));
+            }
 
-            var raw = _results.Results.Sum(r => r.GradedPoints);
-            var deductions = Deductions
-                .Where(d => d.IsApplied && !d.IsAutoZero)
-                .Sum(d => d.Points);
+            // Ticking or unticking an auto-zero always replaces the remarks.
+            if (deduction.IsAutoZero)
+                SetRemarks(DefaultRemarks());
 
-            return Math.Max(0f, raw - deductions);
+            UpdateTotalScore();
         }
 
-        private float CalculatePercentage()
-        {
-            if (_results == null) return 0f;
-            var earned = _results.Results.Sum(r => r.GradedPoints);
-            var possible = _results.Results.Sum(r => r.PointsTotal);
-            return possible > 0 ? (earned / possible) * 100f : 0f;
-        }
+        // ─── Score and remarks ────────────────────────────────────────────────
 
         private void UpdateTotalScore()
         {
-            if (_results == null) return;
+            if (!_sheet.IsLoaded) return;
 
-            var possible = _results.Results.Sum(r => r.PointsTotal);
-            var earned = CalculateFinalGrade();
-            var pct = possible > 0 ? (earned / possible) * 100f : 0f;
+            TotalScore = $"{_sheet.FinalGrade:F2}";
+            TotalPossible = $" / {_sheet.Possible:F2}";
+            TotalScoreColor = ScoreBrushes.For(FeedbackSheet.Band(_sheet.FinalGrade, _sheet.Possible));
 
-            TotalScore = $"{earned:F2}";
-            TotalPossible = $" / {possible:F2}";
-
-            TotalScoreColor = _isAutoZero
-                ? new SolidColorBrush(Color.FromRgb(249, 38, 114))
-                : pct switch
-                {
-                    >= 100f => new SolidColorBrush(Color.FromRgb(166, 226, 46)),
-                    >= 70f => new SolidColorBrush(Color.FromRgb(253, 151, 31)),
-                    _ => new SolidColorBrush(Color.FromRgb(249, 38, 114))
-                };
-
-            if (_isAutoZero || _isBadSubmission) return;
-
-            var newAutoRemarks = GetDefaultRemarks(pct);
+            // Keep the remarks in step with the score until the grader edits them.
             var isStillAuto = Remarks == _lastAutoRemarks || string.IsNullOrEmpty(Remarks);
-
-            if (isStillAuto && newAutoRemarks != _lastAutoRemarks)
-            {
-                Remarks = newAutoRemarks;
-                _lastAutoRemarks = newAutoRemarks;
-            }
+            if (isStillAuto)
+                SetRemarks(DefaultRemarks());
         }
 
-        private static string GetDefaultRemarks(float percentage) => percentage switch
+        private string DefaultRemarks() => _sheet.DefaultRemarks(_student?.FirstName ?? "Student");
+
+        private void SetRemarks(string remarks)
         {
-            >= 100f => "<p>Excellent job on this assignment!</p>",
-            >= 80f  => "<p>Great job on this assignment!</p>",
-            >= 70f  => "<p>Good job on this assignment!</p>",
-            _       => "<p>Good work on this assignment!</p>"
-        };
+            Remarks = remarks;
+            _lastAutoRemarks = remarks;
+        }
 
         // ─── Clipboard ────────────────────────────────────────────────────────
 
@@ -351,68 +218,6 @@ namespace Lab_Feedback_WPF.ViewModels
         {
             Clipboard.SetText(GenerateFeedbackHtml());
             FeedbackCopied?.Invoke(this, EventArgs.Empty);
-        }
-
-        public string GenerateFeedbackHtml()
-        {
-            if (_isBadSubmission) return Remarks;
-            if (_results == null) return string.Empty;
-
-            var sb = new StringBuilder();
-            var possible = _results.Results.Sum(r => r.PointsTotal);
-            var finalGrade = CalculateFinalGrade();
-
-            sb.AppendLine("<p>");
-            sb.AppendLine($"    <span class=\"student\">{StudentName}</span><br><br>");
-            sb.AppendLine($"    <span class=\"intro\">{Remarks}</span>");
-            sb.AppendLine("</p>");
-            sb.AppendLine();
-
-            sb.AppendLine("<div class=\"feedback\">");
-            foreach (var test in _results.Results)
-            {
-                var testId = test.Name.ToLower().Replace(" ", "_");
-                var passed = test.GradedPoints >= test.PointsTotal;
-                var scoreColor = passed ? "rgb(0, 199, 199)" : "rgb(161, 0, 0)";
-                var itemColor = passed ? "rgb(74, 145, 57)" : "rgb(151, 151, 151)";
-                var hasComments = !string.IsNullOrWhiteSpace(test.Comments);
-                var description = string.IsNullOrWhiteSpace(test.Description)
-                    ? test.Name : test.Description;
-
-                sb.AppendLine($"<div class=\"{testId}-output\">");
-                sb.AppendLine($"    <strong class=\"output-header\">{test.Name}: " +
-                              $"<span style=\"color: {scoreColor};\">" +
-                              $"{test.GradedPoints:F1}/{test.PointsTotal:F1}</span></strong>");
-                sb.AppendLine("    <ul class=\"output-list\">");
-                sb.AppendLine($"        <li class=\"{testId}-result\" " +
-                              $"style=\"color: {itemColor}; font-weight: {(passed ? "bold" : "normal")}; margin-top: 4px;\">");
-                sb.AppendLine($"            <span class=\"feedback\" style=\"display: inline;\">{description}</span>");
-                sb.AppendLine($"            <span style=\"display: {(passed ? "inline" : "none")};\"> ✓</span>");
-                sb.AppendLine("        </li>");
-                sb.AppendLine("    </ul>");
-                sb.AppendLine($"    <table style=\"display: {(hasComments ? "table" : "none")}; margin-bottom: 12px;\">");
-                sb.AppendLine("        <tbody><tr><td>");
-                sb.AppendLine(hasComments ? $"            <p>{test.Comments}</p>" : "            <p></p>");
-                sb.AppendLine("        </td></tr></tbody>");
-                sb.AppendLine("    </table>");
-                sb.AppendLine("</div>");
-            }
-            sb.AppendLine("</div>");
-            sb.AppendLine();
-
-            var appliedDeductions = Deductions.Where(d => d.IsApplied).ToList();
-            if (appliedDeductions.Any())
-            {
-                sb.AppendLine("<ul>");
-                foreach (var d in appliedDeductions)
-                    sb.AppendLine(d.IsAutoZero
-                        ? $"    <li><strong>-100pts:</strong> {d.Label}</li>"
-                        : $"    <li><strong>-{d.Points:F0}pts:</strong> {d.Label}</li>");
-                sb.AppendLine("</ul>");
-            }
-
-            sb.AppendLine($"<p>Final Grade: <span class=\"grade\">{finalGrade:F1}</span>/{possible:F0}</p>");
-            return sb.ToString();
         }
     }
 }

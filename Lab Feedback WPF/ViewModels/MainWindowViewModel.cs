@@ -3,7 +3,6 @@ using Lab_Feedback_WPF.Services;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -89,7 +88,7 @@ namespace Lab_Feedback_WPF.ViewModels
                     IsEmptyState = false;
                     IsGradeOverviewVisible = false;
                 }
-                UpdateViolations();
+                ShowViolations();
             }
         }
 
@@ -164,24 +163,6 @@ namespace Lab_Feedback_WPF.ViewModels
         public ICommand ToggleSidePanelCommand { get; }
         public ICommand SelectTabCommand { get; }
 
-        // ─── Violation Terms ──────────────────────────────────────────────────
-
-        private static readonly List<string> ViolationTerms = new()
-        {
-            "&", "const", "static_cast", "reinterpret_cast", "dynamic_cast",
-            "resize()", "ignore()", "clear()", "auto", "try", "size_t", "goto",
-            "catch", "\0", "(...)", "var", "continue", "iterator"
-        };
-
-        private static readonly List<string> FileExclusions = new()
-        {
-            "DONOTUSEANYTHINGINTHISFILE.h", "Source.h", "Helper.cpp", "Helper.h",
-            "Source.cpp", "Test.cpp", "Test.h", "Tester.cpp", "Tester.h",
-            "Utility.cpp", "Utility.h", "UI.h", "ShopUtils.cpp", "ShopUtils.h",
-            "LabUI.h", "resource.h", "LLMChecker.h", "ProgressBar.h", "Result.h",
-            "Results.h", "ResultsLib.h", "LabTestUtils.h", "Console.h", "Console.cpp"
-        };
-
         // ─── Folder / Student Loading ─────────────────────────────────────────
 
         private string? _lastOpenedPath;
@@ -212,64 +193,14 @@ namespace Lab_Feedback_WPF.ViewModels
             foreach (var s in students)
                 Students.Add(s);
 
-            // Sections come from student folders and from any subfolder holding a gradebook CSV,
-            // so the overview lists every gradebook student even without submission folders.
-            var sections = students
-                .Select(s => s.Section)
-                .Where(s => !string.IsNullOrEmpty(s))
-                .Concat(GradebookService.FindSectionsWithGradebooks(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (sections.Count > 0)
-                GradeOverviewVM.Load(path, sections);
-            else
-                GradeOverviewVM.Clear();
+            GradeOverviewVM.Load(GradebookService.Load(path, students.Select(s => s.Section)));
         }
 
         private async void LoadStudentAsync(Student? student)
         {
             if (student?.Folder == null) return;
-            var path = student.Folder;
 
-            var hasZipFiles = Directory.Exists(path) &&
-                              Directory.GetFiles(path, "*.zip", SearchOption.AllDirectories).Length > 0;
-
-            if (hasZipFiles)
-            {
-                var reporter = _progressFactory?.Invoke();
-
-                var submissionFolders = Directory.GetDirectories(path)
-                    .Where(d => Path.GetFileName(d)
-                        .StartsWith("submission_", StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(d => d)
-                    .ToList();
-
-                if (submissionFolders.Any())
-                {
-                    foreach (var folder in submissionFolders)
-                        await ZipFileHandler.ExtractZipFilesInFolderWithProgressAsync(folder, reporter);
-                }
-                else
-                {
-                    await ZipFileHandler.ExtractZipFilesInFolderWithProgressAsync(path, reporter);
-                }
-
-                if (reporter?.IsVisible == true)
-                    reporter.Close();
-            }
-
-            var hasSubmissionFolders = Directory.Exists(path) &&
-                Directory.GetDirectories(path)
-                    .Any(d => Path.GetFileName(d)
-                        .StartsWith("submission_", StringComparison.OrdinalIgnoreCase));
-
-            if (hasSubmissionFolders)
-                Assignment.ConsolidateSubmissions(path);
-
-            var assignments = Assignment.FindLabOrPracticalSubfolders(path)
-                .Where(a => !a.Folder!.Split(Path.DirectorySeparatorChar).Any(seg => seg == ".vs"));
+            var assignments = await Submissions.PrepareAsync(student.Folder, _progressFactory);
 
             Assignments.Clear();
             foreach (var a in assignments)
@@ -283,35 +214,24 @@ namespace Lab_Feedback_WPF.ViewModels
             ClearFileTabs();
 
             if (assignment?.Name == null || assignment.Folder == null) return;
-            var name = assignment.Name;
-            var path = assignment.Folder;
 
-            string? primaryFilePath = null;
-            var exclusions = new List<string>(FileExclusions);
+            var submission = Submissions.Open(assignment);
 
-            if (name.StartsWith("Lab ") || name.StartsWith("Midterm") || name.StartsWith("Final"))
+            foreach (var file in submission.StudentFiles)
+                FileTabs.Add(new FileTabViewModel(file));
+
+            StatusBuilds = submission.BuildLog?.Count.ToString() ?? "N/A";
+            StatusScore = submission.BuildLog?.LastOrDefault()?.Number.ToString() ?? "N/A";
+
+            foreach (var problem in submission.Problems)
+                MessageBox.Show(problem, assignment.Name);
+
+            if (submission.PrimaryFile != null)
             {
-                PopulateFileTabs(name, path, exclusions);
-
-                if (name.StartsWith("Lab "))
-                {
-                    var swh = FileHandler.SearchFile(path, "StudentWork.h");
-                    var sub = FileHandler.SearchFile(path, "Submission.cpp");
-                    if (swh != "") primaryFilePath = swh;
-                    if (sub != "") primaryFilePath = sub;
-                }
-                else if (name.StartsWith("Midterm"))
-                    primaryFilePath = FileHandler.SearchFile(path, "HighScore_Table.cpp");
-                else if (name.StartsWith("Final"))
-                    primaryFilePath = FileHandler.SearchFile(path, "RPG_Shop.cpp");
-            }
-
-            if (!string.IsNullOrEmpty(primaryFilePath))
-            {
-                SelectedFileContent = File.ReadAllText(primaryFilePath);
+                SelectedFileContent = File.ReadAllText(submission.PrimaryFile);
                 IsEmptyState = false;
 
-                var matchingTab = FileTabs.FirstOrDefault(t => t.FilePath == primaryFilePath);
+                var matchingTab = FileTabs.FirstOrDefault(t => t.FilePath == submission.PrimaryFile);
                 if (matchingTab != null)
                 {
                     if (_selectedTab != null) _selectedTab.IsSelected = false;
@@ -320,15 +240,13 @@ namespace Lab_Feedback_WPF.ViewModels
                     OnPropertyChanged(nameof(SelectedTab));
                 }
             }
-            else
-            {
-                MessageBox.Show("There may be a problem with the folder structure.", "Error opening file path.");
-                IsEmptyState = true;
-            }
 
-            var labResults = FileHandler.LoadLabResults(path);
-            GradingVM.LoadResults(labResults ?? new LabResults(), _selectedStudent);
-            UpdateViolations();
+            GradingVM.LoadResults(submission.Results ?? new LabResults(), _selectedStudent);
+
+            _violations = ViolationCheck.Check(submission.StudentFiles
+                .Where(File.Exists)
+                .Select(f => KeyValuePair.Create(f, File.ReadAllText(f))));
+            ShowViolations();
         }
 
         private void ClearFileTabs()
@@ -337,90 +255,21 @@ namespace Lab_Feedback_WPF.ViewModels
             _selectedTab = null;
             SelectedFileContent = string.Empty;
             IsEmptyState = true;
-            ViolationLines = Enumerable.Empty<int>();
+            _violations = ViolationReport.Empty;
+            ShowViolations();
             GradingVM.Clear();
-        }
-
-        private void PopulateFileTabs(string name, string path, List<string> exclusions)
-        {
-            var resultsPath = FileHandler.SearchFile(path, "hdkvkt.txt");
-
-            if (name.StartsWith("Lab"))
-            {
-                exclusions.Add(name + ".cpp");
-                exclusions.Add(name.Replace(" ", "") + ".cpp");
-                SetResultStatusLabels(resultsPath, name);
-            }
-
-            foreach (var fp in FileHandler.SearchHeaderFiles(path, exclusions))
-                FileTabs.Add(new FileTabViewModel(fp));
-        }
-
-        private void SetResultStatusLabels(string resultsPath, string projectName)
-        {
-            if (resultsPath.Length > 0)
-            {
-                var results = FileHandler.ParseFile(resultsPath);
-                StatusBuilds = results.Count.ToString();
-                StatusScore = results.Count > 0 ? results[^1].Number.ToString() : "N/A";
-            }
-            else
-            {
-                MessageBox.Show($"Build logs not found for {projectName}.");
-                StatusBuilds = "N/A";
-                StatusScore = "N/A";
-                ViolationCount = 0;
-            }
         }
 
         // ─── Violations ───────────────────────────────────────────────────────
 
-        private void UpdateViolations()
+        private ViolationReport _violations = ViolationReport.Empty;
+
+        private void ShowViolations()
         {
-            var matcher = new ViolationsMatcher(ViolationTerms);
-            var allViolations = new List<Violation>();
-
-            foreach (var tab in FileTabs)
-            {
-                if (!File.Exists(tab.FilePath)) continue;
-                var text = File.ReadAllText(tab.FilePath);
-                foreach (var v in matcher.GetViolations(text))
-                    allViolations.Add(new Violation(
-                        v.LineNumber, v.MatchedText, v.Context,
-                        $"{tab.FileName} — {v.LineContent}"));
-            }
-
-            if (_selectedTab != null && File.Exists(_selectedTab.FilePath))
-            {
-                var visibleText = File.ReadAllText(_selectedTab.FilePath);
-                ViolationLines = matcher.GetViolations(visibleText).Select(v => v.LineNumber).ToList();
-            }
-            else
-            {
-                ViolationLines = Enumerable.Empty<int>();
-            }
-
-            ViolationCount = allViolations.Count;
-
-            if (allViolations.Count > 0)
-            {
-                var sb = new StringBuilder();
-                sb.AppendLine($"Found {allViolations.Count} violation(s):\n");
-                foreach (var group in allViolations.GroupBy(v => v.LineContent.Split('—')[0].Trim()))
-                {
-                    sb.AppendLine($"── {group.Key}");
-                    foreach (var v in group)
-                        sb.AppendLine($"  Line {v.LineNumber}: '{v.MatchedText}'  {v.Context}");
-                    sb.AppendLine();
-                }
-                ViolationTooltip = sb.ToString().TrimEnd();
-            }
-            else
-            {
-                ViolationTooltip = string.Empty;
-            }
-
-            ViolationColor = allViolations.Count switch
+            ViolationLines = _selectedTab != null ? _violations.LinesIn(_selectedTab.FilePath) : Array.Empty<int>();
+            ViolationCount = _violations.Total;
+            ViolationTooltip = _violations.Summary;
+            ViolationColor = _violations.Total switch
             {
                 > 3 => Brushes.Red,
                 > 0 => Brushes.Orange,
