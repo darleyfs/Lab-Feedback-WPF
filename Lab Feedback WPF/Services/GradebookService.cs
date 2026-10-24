@@ -7,6 +7,15 @@ namespace Lab_Feedback_WPF.Services
     /// Loads reschedule-relevant grade data by parsing each section's gradebook CSV and the
     /// class-wide reschedule CSV(s) (found at the root folder, shared across all sections).
     /// </summary>
+    /// <summary>Everything the grade overview shows for one root folder.</summary>
+    public record Gradebook(
+        IReadOnlyList<GradeRecord> Records,
+        IReadOnlyList<SectionCheckStatus> SectionChecks,
+        bool RescheduleFileFound)
+    {
+        public static Gradebook Empty { get; } = new(Array.Empty<GradeRecord>(), Array.Empty<SectionCheckStatus>(), false);
+    }
+
     public static class GradebookService
     {
         private static readonly string[] RescheduleIdColumns =
@@ -15,11 +24,38 @@ namespace Lab_Feedback_WPF.Services
         };
 
         /// <summary>
+        /// Loads every section under <paramref name="rootFolder"/>: the sections students submitted
+        /// to plus any subfolder holding a gradebook CSV, so the overview lists every gradebook
+        /// student even without submission folders. Empty when there are no sections.
+        /// </summary>
+        public static Gradebook Load(string rootFolder, IEnumerable<string> studentSections)
+        {
+            var sections = studentSections
+                .Where(s => !string.IsNullOrEmpty(s))
+                .Concat(FindSectionsWithGradebooks(rootFolder))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (sections.Count == 0) return Gradebook.Empty;
+
+            var (rescheduledIds, rescheduleFound) = LoadRescheduleList(rootFolder);
+            var records = new List<GradeRecord>();
+            var checks = new List<SectionCheckStatus>();
+            foreach (var section in sections)
+            {
+                var (sectionRecords, gradebookFound) = LoadSection(Path.Combine(rootFolder, section), section, rescheduledIds);
+                records.AddRange(sectionRecords);
+                checks.Add(new SectionCheckStatus(section, gradebookFound));
+            }
+            return new Gradebook(records, checks, rescheduleFound);
+        }
+
+        /// <summary>
         /// Finds and parses every class-wide reschedule CSV directly in <paramref name="rootFolder"/>.
         /// A CSV qualifies by its contents (a "Student Name" / "Student ID" header row), not its
         /// file name; IDs from all qualifying files are merged.
         /// </summary>
-        public static (HashSet<string> RescheduledIds, bool Found) LoadRescheduleList(string rootFolder)
+        private static (HashSet<string> RescheduledIds, bool Found) LoadRescheduleList(string rootFolder)
         {
             var ids = new HashSet<string>();
             if (!Directory.Exists(rootFolder))
@@ -42,7 +78,7 @@ namespace Lab_Feedback_WPF.Services
         /// Parses a section's gradebook CSV(s), cross-referencing against the already-loaded
         /// class-wide <paramref name="rescheduledIds"/>.
         /// </summary>
-        public static (List<GradeRecord> Records, bool GradebookFound) LoadSection(
+        private static (List<GradeRecord> Records, bool GradebookFound) LoadSection(
             string sectionFolder, string sectionName, HashSet<string> rescheduledIds)
         {
             var records = new List<GradeRecord>();
@@ -60,7 +96,7 @@ namespace Lab_Feedback_WPF.Services
         /// Names of the subfolders of <paramref name="rootFolder"/> that contain a gradebook CSV,
         /// so a section shows up in the overview even when it has no student folders.
         /// </summary>
-        public static List<string> FindSectionsWithGradebooks(string rootFolder)
+        private static List<string> FindSectionsWithGradebooks(string rootFolder)
         {
             if (!Directory.Exists(rootFolder)) return new List<string>();
 

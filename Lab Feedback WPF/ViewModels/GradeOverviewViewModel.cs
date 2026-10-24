@@ -51,33 +51,15 @@ namespace Lab_Feedback_WPF.ViewModels
             CopyNeedRescheduleCommand = new RelayCommand(CopyNeedReschedule, () => NeedRescheduling > 0);
         }
 
-        public void Load(string rootPath, IEnumerable<string> sectionFolderNames)
+        public void Load(Gradebook gradebook)
         {
             Records.Clear();
             SectionChecks.Clear();
-
-            var (rescheduledIds, rescheduleFound) = GradebookService.LoadRescheduleList(rootPath);
-            RescheduleFileFound = rescheduleFound;
-
-            foreach (var sectionName in sectionFolderNames)
-            {
-                var sectionFolder = Path.Combine(rootPath, sectionName);
-                var (records, gradebookFound) = GradebookService.LoadSection(sectionFolder, sectionName, rescheduledIds);
-
-                foreach (var record in records)
-                    Records.Add(record);
-
-                SectionChecks.Add(new SectionCheckStatus(sectionName, gradebookFound));
-            }
-
-            UpdateSummary();
-        }
-
-        public void Clear()
-        {
-            Records.Clear();
-            SectionChecks.Clear();
-            RescheduleFileFound = false;
+            foreach (var record in gradebook.Records)
+                Records.Add(record);
+            foreach (var check in gradebook.SectionChecks)
+                SectionChecks.Add(check);
+            RescheduleFileFound = gradebook.RescheduleFileFound;
             UpdateSummary();
         }
 

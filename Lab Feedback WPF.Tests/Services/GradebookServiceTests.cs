@@ -7,6 +7,9 @@ namespace Lab_Feedback_WPF_Tests.Services;
 [TestClass]
 public class GradebookServiceTests
 {
+    private const string Header = "ID,Activity,Actual Grade,Best Possible,Status\n";
+    private const string FailingSmith = "0001234567,Smith John,0,40,ACTIVE\n";
+
     private string _folder = string.Empty;
 
     [TestInitialize]
@@ -23,194 +26,168 @@ public class GradebookServiceTests
             Directory.Delete(_folder, recursive: true);
     }
 
+    private void WriteGradebook(string section, string rows)
+    {
+        var folder = Path.Combine(_folder, section);
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, $"Gradebook_{section}.csv"), Header + rows);
+    }
+
+    private void WriteAtRoot(string fileName, string contents) =>
+        File.WriteAllText(Path.Combine(_folder, fileName), contents);
+
+    private Gradebook Load(params string[] studentSections) => GradebookService.Load(_folder, studentSections);
+
     // -------------------------------------------------------------------------
-    // LoadSection (per-section gradebook)
+    // Sections
     // -------------------------------------------------------------------------
 
     [TestMethod]
-    public void LoadSection_NoGradebookFile_ReturnsEmptyAndReportsMissing()
+    public void NoSections_IsEmpty()
     {
-        var (records, gradebookFound) = GradebookService.LoadSection(_folder, "01", new HashSet<string>());
+        WriteAtRoot("reschedules.csv", "Student Name,Student ID#\nSmith John,0001234567\n");
 
-        Assert.AreEqual(0, records.Count);
-        Assert.IsFalse(gradebookFound);
+        var gradebook = Load();
+
+        Assert.AreEqual(0, gradebook.Records.Count);
+        Assert.AreEqual(0, gradebook.SectionChecks.Count);
+        Assert.IsFalse(gradebook.RescheduleFileFound);
     }
 
     [TestMethod]
-    public void LoadSection_GradebookWithEmptyRescheduleSet_ClassifiesEveryRowNotRescheduled()
+    public void Sections_MergeStudentFoldersAndGradebookFolders_SortedWithoutDuplicates()
     {
-        File.WriteAllText(Path.Combine(_folder, "Gradebook_01.csv"),
-            "ID,Activity,Actual Grade,Best Possible,Status\n" +
-            "0001234567,Smith John,0,40,ACTIVE\n" +
+        WriteGradebook("04", FailingSmith);
+        WriteGradebook("01", FailingSmith);
+        Directory.CreateDirectory(Path.Combine(_folder, "Empty"));
+
+        var gradebook = Load("07", "04", "", "07");
+
+        CollectionAssert.AreEqual(new[] { "01", "04", "07" }, gradebook.SectionChecks.Select(c => c.Section).ToArray());
+    }
+
+    [TestMethod]
+    public void StudentSectionWithoutGradebook_IsReportedMissing()
+    {
+        var gradebook = Load("01");
+
+        var check = gradebook.SectionChecks.Single();
+        Assert.AreEqual("01", check.Section);
+        Assert.IsFalse(check.GradebookFound);
+        Assert.AreEqual(0, gradebook.Records.Count);
+    }
+
+    // -------------------------------------------------------------------------
+    // Gradebook rows
+    // -------------------------------------------------------------------------
+
+    [TestMethod]
+    public void GradebookRows_AreClassifiedByStatus()
+    {
+        WriteGradebook("01",
+            FailingSmith +
             "0007654321,Doe Jane,95,100,ACTIVE\n" +
             "0009999999,Old Student,0,0,DROPPED\n");
 
-        var (records, gradebookFound) = GradebookService.LoadSection(_folder, "01", new HashSet<string>());
+        var gradebook = Load();
 
-        Assert.AreEqual(3, records.Count);
-        Assert.IsTrue(records.All(r => !r.AlreadyRescheduled));
-        Assert.IsTrue(gradebookFound);
+        Assert.IsTrue(gradebook.SectionChecks.Single().GradebookFound);
+        Assert.AreEqual(3, gradebook.Records.Count);
+        Assert.IsTrue(gradebook.Records.All(r => !r.AlreadyRescheduled));
 
-        var failing = records.Single(r => r.Name == "Smith John");
+        var failing = gradebook.Records.Single(r => r.Name == "Smith John");
         Assert.AreEqual(GradeStatus.Failing, failing.Status);
         Assert.IsTrue(failing.NeedsReschedule);
-
-        var passing = records.Single(r => r.Name == "Doe Jane");
-        Assert.AreEqual(GradeStatus.Passing, passing.Status);
-
-        var inactive = records.Single(r => r.Name == "Old Student");
-        Assert.AreEqual(GradeStatus.Inactive, inactive.Status);
+        Assert.AreEqual(GradeStatus.Passing, gradebook.Records.Single(r => r.Name == "Doe Jane").Status);
+        Assert.AreEqual(GradeStatus.Inactive, gradebook.Records.Single(r => r.Name == "Old Student").Status);
     }
 
     [TestMethod]
-    public void LoadSection_StudentIdInRescheduleSet_IsFlaggedAndNoLongerNeedsReschedule()
+    public void NonStudentRows_AreSkipped()
     {
-        File.WriteAllText(Path.Combine(_folder, "Gradebook_01.csv"),
-            "ID,Activity,Actual Grade,Best Possible,Status\n" +
-            "0001234567,Smith John,0,40,ACTIVE\n");
+        WriteGradebook("01", "Weight,Weight,,,\n,,,,\n0001234567,Smith John,60,100,ACTIVE\n");
 
-        var rescheduledIds = new HashSet<string> { GradeRecord.NormalizeId("0001234567") };
-        var (records, gradebookFound) = GradebookService.LoadSection(_folder, "01", rescheduledIds);
+        var record = Load().Records.Single();
 
-        var record = records.Single();
+        Assert.AreEqual("Smith John", record.Name);
+    }
+
+    // -------------------------------------------------------------------------
+    // Reschedule list (class-wide CSVs at the root folder)
+    // -------------------------------------------------------------------------
+
+    [TestMethod]
+    public void NoRescheduleFile_IsNotFound()
+    {
+        WriteGradebook("01", FailingSmith);
+
+        var gradebook = Load();
+
+        Assert.IsFalse(gradebook.RescheduleFileFound);
+        Assert.IsTrue(gradebook.Records.Single().NeedsReschedule);
+    }
+
+    [TestMethod]
+    public void StudentOnRescheduleList_IsFlaggedAndNoLongerNeedsReschedule()
+    {
+        WriteGradebook("01", FailingSmith);
+        WriteAtRoot("reschedules.csv", "Student Name,Student ID#,Reason\nSmith John,0001234567,Illness\n");
+
+        var gradebook = Load();
+
+        var record = gradebook.Records.Single();
+        Assert.IsTrue(gradebook.RescheduleFileFound);
         Assert.IsTrue(record.AlreadyRescheduled);
         Assert.IsFalse(record.NeedsReschedule);
         Assert.AreEqual("On Reschedule List", record.RescheduleStatusText);
-        Assert.IsTrue(gradebookFound);
     }
 
     [TestMethod]
-    public void LoadSection_NonStudentRows_AreSkipped()
+    public void RescheduleFile_AnyNameWithMatchingHeader_IsAccepted()
     {
-        File.WriteAllText(Path.Combine(_folder, "Gradebook_01.csv"),
-            "ID,Activity,Actual Grade,Best Possible,Status\n" +
-            "Weight,Weight,,,\n" +
-            ",,,,\n" +
-            "0001234567,Smith John,60,100,ACTIVE\n");
+        WriteGradebook("01", FailingSmith);
+        WriteAtRoot("Week 5 export.csv", "Exported 9/23/2026\nStudent Name,Student ID#,Reason\nSmith John,0001234567,Illness\n");
 
-        var (records, _) = GradebookService.LoadSection(_folder, "01", new HashSet<string>());
+        var gradebook = Load();
 
-        Assert.AreEqual(1, records.Count);
-        Assert.AreEqual("Smith John", records[0].Name);
-    }
-
-    // -------------------------------------------------------------------------
-    // LoadRescheduleList (single class-wide file, at the root folder)
-    // -------------------------------------------------------------------------
-
-    [TestMethod]
-    public void LoadRescheduleList_NoFile_ReturnsEmptyAndNotFound()
-    {
-        var (ids, found) = GradebookService.LoadRescheduleList(_folder);
-
-        Assert.AreEqual(0, ids.Count);
-        Assert.IsFalse(found);
+        Assert.IsTrue(gradebook.RescheduleFileFound);
+        Assert.IsTrue(gradebook.Records.Single().AlreadyRescheduled);
     }
 
     [TestMethod]
-    public void LoadRescheduleList_FileAtRoot_ParsesNormalizedIds()
+    public void CsvWithoutRescheduleHeader_IsIgnored()
     {
-        File.WriteAllText(Path.Combine(_folder, "reschedules.csv"),
-            "Student Name,Student ID#,Reason\n" +
-            "Smith John,0001234567,Illness\n" +
-            "Doe Jane,0007654321,Family emergency\n");
+        WriteGradebook("01", FailingSmith);
+        WriteAtRoot("reschedules.csv", Header + FailingSmith);
 
-        var (ids, found) = GradebookService.LoadRescheduleList(_folder);
+        var gradebook = Load();
 
-        Assert.IsTrue(found);
-        Assert.AreEqual(2, ids.Count);
-        Assert.IsTrue(ids.Contains(GradeRecord.NormalizeId("0001234567")));
-        Assert.IsTrue(ids.Contains(GradeRecord.NormalizeId("0007654321")));
+        Assert.IsFalse(gradebook.RescheduleFileFound);
+        Assert.IsFalse(gradebook.Records.Single().AlreadyRescheduled);
     }
 
     [TestMethod]
-    public void LoadRescheduleList_AnyFileNameWithMatchingFormat_IsAccepted()
+    public void MultipleRescheduleFiles_AreMerged()
     {
-        File.WriteAllText(Path.Combine(_folder, "Week 5 export.csv"),
-            "Exported 9/23/2026\n" +
-            "Student Name,Student ID#,Reason\n" +
-            "Smith John,0001234567,Illness\n");
+        WriteGradebook("01", FailingSmith + "0007654321,Doe Jane,0,40,ACTIVE\n");
+        WriteAtRoot("a.csv", "Student Name,Student ID#\nSmith John,0001234567\n");
+        WriteAtRoot("b.csv", "Student Name,Student ID\nDoe Jane,0007654321\n");
 
-        var (ids, found) = GradebookService.LoadRescheduleList(_folder);
+        var gradebook = Load();
 
-        Assert.IsTrue(found);
-        Assert.IsTrue(ids.Contains(GradeRecord.NormalizeId("0001234567")));
+        Assert.IsTrue(gradebook.Records.All(r => r.AlreadyRescheduled));
     }
 
     [TestMethod]
-    public void LoadRescheduleList_CsvWithoutRescheduleHeader_IsIgnored()
+    public void RescheduleList_AppliesAcrossSections()
     {
-        File.WriteAllText(Path.Combine(_folder, "reschedules.csv"),
-            "ID,Activity,Actual Grade,Best Possible,Status\n" +
-            "0001234567,Smith John,0,40,ACTIVE\n");
+        WriteGradebook("01", FailingSmith);
+        WriteGradebook("04", FailingSmith);
+        WriteAtRoot("reschedules.csv", "Student Name,Student ID#,Reason\nSmith John,0001234567,Illness\n");
 
-        var (ids, found) = GradebookService.LoadRescheduleList(_folder);
+        var gradebook = Load();
 
-        Assert.IsFalse(found);
-        Assert.AreEqual(0, ids.Count);
-    }
-
-    [TestMethod]
-    public void LoadRescheduleList_MultipleMatchingFiles_MergesIds()
-    {
-        File.WriteAllText(Path.Combine(_folder, "a.csv"),
-            "Student Name,Student ID#\nSmith John,0001234567\n");
-        File.WriteAllText(Path.Combine(_folder, "b.csv"),
-            "Student Name,Student ID\nDoe Jane,0007654321\n");
-
-        var (ids, found) = GradebookService.LoadRescheduleList(_folder);
-
-        Assert.IsTrue(found);
-        Assert.AreEqual(2, ids.Count);
-    }
-
-    [TestMethod]
-    public void LoadRescheduleList_IdsApplyAcrossSections_WhenSharedWithLoadSection()
-    {
-        // The reschedule list is class-wide: one file at the root, cross-referenced
-        // against every section's gradebook.
-        File.WriteAllText(Path.Combine(_folder, "reschedules.csv"),
-            "Student Name,Student ID#,Reason\n" +
-            "Smith John,0001234567,Illness\n");
-
-        var section01 = Path.Combine(_folder, "01");
-        var section04 = Path.Combine(_folder, "04");
-        Directory.CreateDirectory(section01);
-        Directory.CreateDirectory(section04);
-        File.WriteAllText(Path.Combine(section01, "Gradebook_01.csv"),
-            "ID,Activity,Actual Grade,Best Possible,Status\n0001234567,Smith John,0,40,ACTIVE\n");
-        File.WriteAllText(Path.Combine(section04, "Gradebook_04.csv"),
-            "ID,Activity,Actual Grade,Best Possible,Status\n0001234567,Smith John,0,40,ACTIVE\n");
-
-        var (rescheduledIds, found) = GradebookService.LoadRescheduleList(_folder);
-        Assert.IsTrue(found);
-
-        var (records01, _) = GradebookService.LoadSection(section01, "01", rescheduledIds);
-        var (records04, _) = GradebookService.LoadSection(section04, "04", rescheduledIds);
-
-        Assert.IsTrue(records01.Single().AlreadyRescheduled);
-        Assert.IsTrue(records04.Single().AlreadyRescheduled);
-    }
-
-    // -------------------------------------------------------------------------
-    // FindSectionsWithGradebooks
-    // -------------------------------------------------------------------------
-
-    [TestMethod]
-    public void FindSectionsWithGradebooks_IncludesSectionsWithoutStudentFolders()
-    {
-        var csvOnly = Path.Combine(_folder, "01");
-        Directory.CreateDirectory(csvOnly);
-        File.WriteAllText(Path.Combine(csvOnly, "Gradebook_01.csv"), "ID,Activity\n1,Alice\n");
-
-        var withStudents = Path.Combine(_folder, "04");
-        Directory.CreateDirectory(Path.Combine(withStudents, "Doe_Jane-0007654321"));
-        File.WriteAllText(Path.Combine(withStudents, "Gradebook_04.csv"), "ID,Activity\n2,Bob\n");
-
-        Directory.CreateDirectory(Path.Combine(_folder, "Empty"));
-
-        var sections = GradebookService.FindSectionsWithGradebooks(_folder);
-
-        CollectionAssert.AreEquivalent(new[] { "01", "04" }, sections);
+        Assert.AreEqual(2, gradebook.Records.Count);
+        Assert.IsTrue(gradebook.Records.All(r => r.AlreadyRescheduled));
     }
 }
