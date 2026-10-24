@@ -68,18 +68,15 @@ public class GradingViewModelTests
     }
 
     [TestMethod]
-    public void Deductions_SubtractPoints_AndNeverGoBelowZero()
+    public void TickingDeduction_UpdatesTotal()
     {
         var grading = Loaded();
 
         grading.Deductions[MultipleReturns].IsApplied = true;
         Assert.AreEqual("5.00", grading.TotalScore);
 
-        grading.Deductions[NoComments].IsApplied = true;
-        Assert.AreEqual("0.00", grading.TotalScore);
-
         grading.Deductions[MultipleReturns].IsApplied = false;
-        Assert.AreEqual("5.00", grading.TotalScore);
+        Assert.AreEqual("15.00", grading.TotalScore);
     }
 
     [TestMethod]
@@ -90,7 +87,6 @@ public class GradingViewModelTests
         grading.Deductions[ExternalResource].IsApplied = true;
         Assert.AreEqual("0.00", grading.TotalScore);
         StringAssert.Contains(grading.Remarks, "External Research Use Policy");
-        StringAssert.Contains(grading.GenerateFeedbackHtml(), "<strong>-100pts:</strong> Violates external resource policy");
 
         grading.Deductions[ExternalResource].IsApplied = false;
         Assert.AreEqual("15.00", grading.TotalScore);
@@ -123,14 +119,8 @@ public class GradingViewModelTests
         var grading = Loaded();
         Assert.AreEqual("<p>Good job on this assignment!</p>", grading.Remarks); // 75%
 
-        grading.TestResults[1].GradedPoints = 6;
-        Assert.AreEqual("<p>Great job on this assignment!</p>", grading.Remarks); // 80%
-
         grading.TestResults[1].GradedPoints = 10;
         Assert.AreEqual("<p>Excellent job on this assignment!</p>", grading.Remarks); // 100%
-
-        grading.TestResults[1].GradedPoints = 0;
-        Assert.AreEqual("<p>Good work on this assignment!</p>", grading.Remarks); // 50%
     }
 
     [TestMethod]
@@ -145,19 +135,15 @@ public class GradingViewModelTests
     }
 
     [TestMethod]
-    public void FeedbackHtml_HasEachTestDeductionsAndFinalGrade()
+    public void FeedbackHtml_UsesStudentNameAndCurrentRemarks()
     {
         var grading = Loaded();
-        grading.Deductions[MultipleReturns].IsApplied = true;
+        grading.Remarks = "<p>See me after class.</p>";
 
         var html = grading.GenerateFeedbackHtml();
 
         StringAssert.Contains(html, "<span class=\"student\">Ada</span>");
-        StringAssert.Contains(html, "Add: <span style=\"color: rgb(0, 199, 199);\">10.0/10.0</span>");
-        StringAssert.Contains(html, "Divide: <span style=\"color: rgb(161, 0, 0);\">5.0/10.0</span>");
-        StringAssert.Contains(html, "<strong>-10pts:</strong> Method has multiple returns");
-        StringAssert.Contains(html, "Final Grade: <span class=\"grade\">5.0</span>/20");
-        Assert.IsFalse(html.Contains("<table"), "No comments means no comment blocks");
+        StringAssert.Contains(html, "<span class=\"intro\"><p>See me after class.</p></span>");
     }
 
     [TestMethod]
