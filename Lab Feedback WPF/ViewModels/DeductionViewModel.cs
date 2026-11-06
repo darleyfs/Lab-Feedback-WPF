@@ -10,7 +10,7 @@ namespace Lab_Feedback_WPF.ViewModels
         public string Label => Model.Label;
         public float Points => Model.Points;
         public bool IsAutoZero => Model.IsAutoZero;
-        public bool IsBadSubmission => Model.IsBadSubmission;
+        public bool IsResubmit => Model.IsResubmit;
 
         public bool IsApplied
         {

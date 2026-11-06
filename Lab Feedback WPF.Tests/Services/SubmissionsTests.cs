@@ -122,6 +122,7 @@ public class SubmissionsTests
         Write("Lab 3A/Lab 3A/Utility.h");
         Write("Lab 3A/x64/Debug/hdkvkt.txt", "2026-10-01 10:00:00 - 40\n2026-10-01 10:05:00 - 85\n");
         Write("Lab 3A/x64/Debug/results.json", "{\"name\": \"Lab 3A\", \"results\": [{\"name\": \"Add\", \"pointsTotal\": 10, \"pointsReceived\": 10}]}");
+        Write("Lab 3A/x64/Debug/output.log");
 
         var submission = Submissions.Open(Assignment("Lab 3A"));
 
@@ -187,7 +188,56 @@ public class SubmissionsTests
 
         Assert.IsNull(submission.BuildLog);
         Assert.IsNull(submission.Results);
-        CollectionAssert.AreEqual(new[] { "Build logs not found for Lab 2." }, submission.Problems.ToArray());
+        CollectionAssert.AreEqual(new[] { "output.log not found for Lab 2.", "Build logs not found for Lab 2." }, submission.Problems.ToArray());
+    }
+
+    private const string ValidResults = "{\"name\": \"Lab 2\", \"results\": []}";
+
+    [TestMethod]
+    public void Open_MissingResultsJson_IsUntested()
+    {
+        Write("Lab 2/Submission.cpp");
+        Write("Lab 2/output.log");
+
+        var submission = Submissions.Open(Assignment("Lab 2"));
+
+        Assert.IsTrue(submission.IsUntested);
+        Assert.IsNull(submission.Results);
+    }
+
+    [TestMethod]
+    public void Open_MissingOutputLog_IsUntested_AndReported()
+    {
+        Write("Lab 2/Submission.cpp");
+        Write("Lab 2/results.json", ValidResults);
+
+        var submission = Submissions.Open(Assignment("Lab 2"));
+
+        Assert.IsTrue(submission.IsUntested);
+        CollectionAssert.Contains(submission.Problems.ToList(), "output.log not found for Lab 2.");
+    }
+
+    [TestMethod]
+    public void Open_ResultsJsonAndOutputLog_IsNotUntested()
+    {
+        Write("Lab 2/Submission.cpp");
+        Write("Lab 2/results.json", ValidResults);
+        Write("Lab 2/deep/er/output.log");
+
+        var submission = Submissions.Open(Assignment("Lab 2"));
+
+        Assert.IsFalse(submission.IsUntested);
+        CollectionAssert.DoesNotContain(submission.Problems.ToList(), "output.log not found for Lab 2.");
+    }
+
+    [TestMethod]
+    public void Open_UnreadableResultsJsonWithOutputLog_IsNotUntested()
+    {
+        Write("Lab 2/Submission.cpp");
+        Write("Lab 2/results.json", "{ not json");
+        Write("Lab 2/output.log");
+
+        Assert.IsFalse(Submissions.Open(Assignment("Lab 2")).IsUntested);
     }
 
     [TestMethod]

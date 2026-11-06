@@ -241,7 +241,7 @@ namespace Lab_Feedback_WPF.ViewModels
                 }
             }
 
-            GradingVM.LoadResults(submission.Results ?? new LabResults(), _selectedStudent);
+            GradingVM.LoadResults(submission.Results ?? new LabResults(), _selectedStudent, submission.IsUntested);
 
             _violations = ViolationCheck.Check(submission.StudentFiles
                 .Where(File.Exists)

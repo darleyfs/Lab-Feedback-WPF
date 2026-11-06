@@ -83,7 +83,7 @@ namespace Lab_Feedback_WPF.ViewModels
 
         public bool NoResultsVisible => !_hasResults;
 
-        public bool ControlsEnabled => !_sheet.IsBadSubmission;
+        public bool ControlsEnabled => !_sheet.IsResubmit;
 
         public System.Windows.Input.ICommand CopyFeedbackCommand { get; }
 
@@ -93,7 +93,7 @@ namespace Lab_Feedback_WPF.ViewModels
         {
             CopyFeedbackCommand = new RelayCommand(
                 CopyFeedback,
-                () => _sheet.IsLoaded || _sheet.IsBadSubmission);
+                () => _sheet.IsLoaded || _sheet.IsResubmit);
 
             foreach (var model in _sheet.Deductions)
             {
@@ -105,11 +105,11 @@ namespace Lab_Feedback_WPF.ViewModels
 
         // ─── Public API ───────────────────────────────────────────────────────
 
-        public void LoadResults(LabResults? results, Student? student = null)
+        public void LoadResults(LabResults? results, Student? student = null, bool isUntested = false)
         {
             _student = student;
             _lastAutoRemarks = string.Empty;
-            _sheet.Load(results);
+            _sheet.Load(results, isUntested);
             ResetDeductions();
 
             StudentName = student?.FirstName ?? string.Empty;
@@ -164,22 +164,21 @@ namespace Lab_Feedback_WPF.ViewModels
         private void ResetDeductions()
         {
             foreach (var d in Deductions)
-            {
                 d.Refresh();
-                d.IsEnabled = true;
-            }
+            LockWhileResubmit();
+        }
+
+        // A resubmit can't be graded, so everything but its own checkbox locks.
+        private void LockWhileResubmit()
+        {
+            foreach (var d in Deductions)
+                d.IsEnabled = !_sheet.IsResubmit || (d.IsResubmit && d.IsApplied);
             OnPropertyChanged(nameof(ControlsEnabled));
         }
 
         private void OnDeductionToggled(DeductionViewModel deduction)
         {
-            if (deduction.IsBadSubmission)
-            {
-                // A bad submission can't be graded, so everything but its own checkbox locks.
-                foreach (var d in Deductions)
-                    d.IsEnabled = d.IsBadSubmission || !_sheet.IsBadSubmission;
-                OnPropertyChanged(nameof(ControlsEnabled));
-            }
+            LockWhileResubmit();
 
             // Ticking or unticking an auto-zero always replaces the remarks.
             if (deduction.IsAutoZero)
