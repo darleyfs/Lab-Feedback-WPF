@@ -62,7 +62,7 @@ public class FeedbackSheetTests
         Tick(sheet, "Violates external resource policy");
 
         Assert.IsTrue(sheet.IsAutoZero);
-        Assert.IsFalse(sheet.IsBadSubmission);
+        Assert.IsFalse(sheet.IsResubmit);
         Assert.AreEqual(0f, sheet.FinalGrade);
     }
 
@@ -130,6 +130,28 @@ public class FeedbackSheetTests
         Tick(sheet, "Bad submission");
         StringAssert.StartsWith(sheet.DefaultRemarks("Ada"), "<p>Hey Ada,</p>");
         StringAssert.Contains(sheet.DefaultRemarks("Ada"), "<em>Required Software</em>");
+    }
+
+    [TestMethod]
+    public void DefaultRemarks_UntestedSubmissionAddressesTheStudent()
+    {
+        var sheet = Loaded();
+
+        Tick(sheet, "Untested submission");
+
+        Assert.IsTrue(sheet.IsResubmit);
+        StringAssert.StartsWith(sheet.DefaultRemarks("Ada"), "<p>Hey Ada,</p>");
+        StringAssert.Contains(sheet.DefaultRemarks("Ada"), "<code>output.log</code>");
+    }
+
+    [TestMethod]
+    public void Load_Untested_StartsWithUntestedSubmissionApplied()
+    {
+        var sheet = Loaded();
+
+        sheet.Load(new LabResults(), isUntested: true);
+
+        Assert.AreEqual("Untested submission", sheet.Deductions.Single(d => d.IsApplied).Label);
     }
 
     // ─── Feedback HTML ────────────────────────────────────────────────────────

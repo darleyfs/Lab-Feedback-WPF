@@ -32,6 +32,10 @@ _Avoid_: main file
 The autograder's history of scores for a submission, one entry per build.
 _Avoid_: results file, hdkvkt
 
+**Output log**:
+The older log a successful build writes. Every submission must still include one; the requirement will be dropped later.
+_Avoid_: output.log, results file
+
 ## Violations
 
 **Violation**:
@@ -81,3 +85,7 @@ _Avoid_: violation
 **Bad submission**:
 An auto-zero for a submission that can't be graded; its remarks ask the student to resubmit.
 _Avoid_: invalid submission
+
+**Untested submission**:
+A submission the student never ran successfully, so the autograder's results or output log are missing. Applies to Labs and Practicals. It gets an auto-zero, and its remarks give the student 24 hours to resubmit.
+_Avoid_: unrun submission, never-run project

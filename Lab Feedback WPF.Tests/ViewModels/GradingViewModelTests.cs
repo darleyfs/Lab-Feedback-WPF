@@ -13,6 +13,7 @@ public class GradingViewModelTests
     private const int NoComments = 1;
     private const int ExternalResource = 2;
     private const int BadSubmission = 3;
+    private const int Untested = 4;
 
     // Two 10-point tests, one passed and one half done: 15 / 20 (75%).
     private static GradingViewModel Loaded()
@@ -111,6 +112,54 @@ public class GradingViewModelTests
         Assert.IsTrue(grading.ControlsEnabled);
         Assert.IsTrue(grading.Deductions[MultipleReturns].IsEnabled);
         Assert.AreEqual("15.00", grading.TotalScore);
+    }
+
+    private static GradingViewModel LoadedUntested()
+    {
+        var grading = new GradingViewModel();
+        grading.LoadResults(new LabResults { Name = "Lab 3", Results = { new TestResult { Name = "Add", PointsTotal = 10, PointsReceived = 10 } } },
+            new Student("Ada", "Lovelace", "1", null), isUntested: true);
+        return grading;
+    }
+
+    [TestMethod]
+    public void LoadResults_Untested_TicksAndLocks_AndFeedbackIsTheMessage()
+    {
+        var grading = LoadedUntested();
+
+        Assert.IsTrue(grading.Deductions[Untested].IsApplied);
+        Assert.IsFalse(grading.ControlsEnabled);
+        Assert.IsFalse(grading.Deductions[MultipleReturns].IsEnabled);
+        Assert.IsFalse(grading.Deductions[BadSubmission].IsEnabled);
+        Assert.IsTrue(grading.Deductions[Untested].IsEnabled);
+        StringAssert.StartsWith(grading.Remarks, "<p>Hey Ada,</p>");
+        StringAssert.Contains(grading.Remarks, "output.log");
+        Assert.AreEqual(grading.Remarks, grading.GenerateFeedbackHtml());
+    }
+
+    [TestMethod]
+    public void UntickingUntested_UnlocksAndRestoresScoreRemarks()
+    {
+        var grading = LoadedUntested();
+
+        grading.Deductions[Untested].IsApplied = false;
+
+        Assert.IsTrue(grading.ControlsEnabled);
+        Assert.IsTrue(grading.Deductions[MultipleReturns].IsEnabled);
+        Assert.AreEqual("<p>Excellent job on this assignment!</p>", grading.Remarks);
+        Assert.AreEqual("10.00", grading.TotalScore);
+    }
+
+    [TestMethod]
+    public void LoadResults_AfterUntested_WithoutFlag_Resets()
+    {
+        var grading = LoadedUntested();
+
+        grading.LoadResults(new LabResults { Name = "Lab 3", Results = { new TestResult { Name = "Add", PointsTotal = 10, PointsReceived = 10 } } });
+
+        Assert.IsFalse(grading.Deductions[Untested].IsApplied);
+        Assert.IsTrue(grading.ControlsEnabled);
+        Assert.IsTrue(grading.Deductions[MultipleReturns].IsEnabled);
     }
 
     [TestMethod]
