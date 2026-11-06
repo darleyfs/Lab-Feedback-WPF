@@ -20,6 +20,7 @@ namespace Lab_Feedback_WPF.ViewModels
         private bool _isGradeOverviewVisible;
         private string _statusBuilds = "0";
         private string _statusScore = "0";
+        private string _statusOutputLog = "N/A";
         private int _violationCount;
         private string _violationTooltip = string.Empty;
         private Brush _violationColor;
@@ -128,6 +129,12 @@ namespace Lab_Feedback_WPF.ViewModels
             set => SetField(ref _statusScore, value);
         }
 
+        public string StatusOutputLog
+        {
+            get => _statusOutputLog;
+            set => SetField(ref _statusOutputLog, value);
+        }
+
         public int ViolationCount
         {
             get => _violationCount;
@@ -220,8 +227,9 @@ namespace Lab_Feedback_WPF.ViewModels
             foreach (var file in submission.StudentFiles)
                 FileTabs.Add(new FileTabViewModel(file));
 
-            StatusBuilds = submission.BuildLog?.Count.ToString() ?? "N/A";
+            StatusBuilds = submission.BuildLog?.Count.ToString() ?? "Missing";
             StatusScore = submission.BuildLog?.LastOrDefault()?.Number.ToString() ?? "N/A";
+            StatusOutputLog = submission.HasOutputLog ? "Found" : "Missing";
 
             foreach (var problem in submission.Problems)
                 MessageBox.Show(problem, assignment.Name);

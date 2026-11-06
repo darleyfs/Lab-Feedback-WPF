@@ -270,8 +270,7 @@
                               Header="Initial Remarks (HTML)"
                               Foreground="#CCCCCC"
                               Margin="0,0,0,12"
-                              IsExpanded="True"
-                              IsEnabled="{Binding ControlsEnabled}"/>
+                              IsExpanded="True"/>
 
                     <!-- Deductions -->
                     <ItemsControl ItemsSource="{Binding Deductions}" Margin="0,0,0,12"/>

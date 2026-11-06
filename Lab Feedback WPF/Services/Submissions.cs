@@ -11,13 +11,15 @@ namespace Lab_Feedback_WPF.Services
     /// <param name="PrimaryFile">The student file to show first, or null if there are no student files.</param>
     /// <param name="Results">The autograder's results.json, or null if there isn't one.</param>
     /// <param name="BuildLog">The build log, or null if there isn't one.</param>
-    /// <param name="Problems">Messages for the grader, e.g. a missing build log.</param>
+    /// <param name="HasOutputLog">True when the submission includes an output.log.</param>
+    /// <param name="Problems">Messages for the grader, e.g. an unreadable results.json.</param>
     /// <param name="IsUntested">True when results.json or output.log is missing. An unreadable results.json does not count.</param>
     public record OpenedSubmission(
         IReadOnlyList<string> StudentFiles,
         string? PrimaryFile,
         LabResults? Results,
         IReadOnlyList<BuildLogEntry>? BuildLog,
+        bool HasOutputLog,
         IReadOnlyList<string> Problems,
         bool IsUntested);
 
@@ -76,7 +78,7 @@ namespace Lab_Feedback_WPF.Services
             if (folder == null || !Directory.Exists(folder))
             {
                 problems.Add("There may be a problem with the folder structure.");
-                return new OpenedSubmission(Array.Empty<string>(), null, null, null, problems, false);
+                return new OpenedSubmission(Array.Empty<string>(), null, null, null, false, problems, false);
             }
 
             var starterFiles = new HashSet<string>(StarterFiles, StringComparer.OrdinalIgnoreCase);
@@ -99,17 +101,13 @@ namespace Lab_Feedback_WPF.Services
             var resultsPath = FindFile(folder, "results.json");
             var results = resultsPath == null ? null : LoadResults(resultsPath, problems);
 
-            var outputLogPath = FindFile(folder, "output.log");
-            if (outputLogPath == null)
-                problems.Add($"output.log not found for {name}.");
+            var hasOutputLog = FindFile(folder, "output.log") != null;
 
             var buildLogPath = FindFile(folder, "hdkvkt.txt");
             var buildLog = buildLogPath == null ? null : ParseBuildLog(buildLogPath);
-            if (buildLog == null)
-                problems.Add($"Build logs not found for {name}.");
 
-            return new OpenedSubmission(studentFiles, primaryFile, results, buildLog, problems,
-                IsUntested: resultsPath == null || outputLogPath == null);
+            return new OpenedSubmission(studentFiles, primaryFile, results, buildLog, hasOutputLog, problems,
+                IsUntested: resultsPath == null || !hasOutputLog);
         }
 
         private static string? PrimaryFile(Assignment assignment, List<string> studentFiles)

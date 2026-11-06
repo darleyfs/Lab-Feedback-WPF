@@ -188,7 +188,8 @@ public class SubmissionsTests
 
         Assert.IsNull(submission.BuildLog);
         Assert.IsNull(submission.Results);
-        CollectionAssert.AreEqual(new[] { "output.log not found for Lab 2.", "Build logs not found for Lab 2." }, submission.Problems.ToArray());
+        Assert.IsFalse(submission.HasOutputLog);
+        Assert.AreEqual(0, submission.Problems.Count);
     }
 
     private const string ValidResults = "{\"name\": \"Lab 2\", \"results\": []}";
@@ -206,7 +207,7 @@ public class SubmissionsTests
     }
 
     [TestMethod]
-    public void Open_MissingOutputLog_IsUntested_AndReported()
+    public void Open_MissingOutputLog_IsUntested()
     {
         Write("Lab 2/Submission.cpp");
         Write("Lab 2/results.json", ValidResults);
@@ -214,7 +215,7 @@ public class SubmissionsTests
         var submission = Submissions.Open(Assignment("Lab 2"));
 
         Assert.IsTrue(submission.IsUntested);
-        CollectionAssert.Contains(submission.Problems.ToList(), "output.log not found for Lab 2.");
+        Assert.IsFalse(submission.HasOutputLog);
     }
 
     [TestMethod]
@@ -227,7 +228,7 @@ public class SubmissionsTests
         var submission = Submissions.Open(Assignment("Lab 2"));
 
         Assert.IsFalse(submission.IsUntested);
-        CollectionAssert.DoesNotContain(submission.Problems.ToList(), "output.log not found for Lab 2.");
+        Assert.IsTrue(submission.HasOutputLog);
     }
 
     [TestMethod]
