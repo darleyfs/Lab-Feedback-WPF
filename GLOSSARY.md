@@ -46,12 +46,12 @@ _Avoid_: match, hit
 One entry in the list of features PG1 doesn't allow. Comments are ignored when looking for them.
 _Avoid_: search string, keyword
 
-**Section tag**:
-A per-assignment token (a fixed prefix plus three characters) that a starter's agent instructions ask any AI agent to put on code it writes. The tokens are kept in `markers.json` in the staff repo, not in this repo.
-_Avoid_: watermark, canary
+**Section code**:
+A short per-assignment code that a starter's agent instructions ask any AI agent to end its local variable names with. The codes are kept in `markers.json` in the staff repo, not in this repo.
+_Avoid_: section tag, watermark, canary
 
 **Marker**:
-A section tag or an `assisted:` label found in a student file, comments included. A marker is a reason to talk to the student, not proof, and it never appears in the feedback.
+An identifier in a student file that ends in a section code, outside comments. A marker is a reason to talk to the student, not proof, and it never appears in the feedback.
 _Avoid_: violation, AI flag
 
 ## Rubrics
