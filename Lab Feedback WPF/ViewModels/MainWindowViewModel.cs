@@ -25,6 +25,11 @@ namespace Lab_Feedback_WPF.ViewModels
         private string _violationTooltip = string.Empty;
         private Brush _violationColor;
         private IEnumerable<int> _violationLines = Enumerable.Empty<int>();
+        private string _markerStatus = "Off";
+        private string _markerTooltip = string.Empty;
+        private Brush _markerColor;
+        private readonly MarkerSet? _markerSet;
+        private readonly string? _markerSetError;
 
         private readonly Func<IExtractionProgress>? _progressFactory;
 
@@ -39,6 +44,8 @@ namespace Lab_Feedback_WPF.ViewModels
         {
             _progressFactory = progressFactory;
             _violationColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC"));
+            _markerColor = _violationColor;
+            (_markerSet, _markerSetError) = MarkerSet.LoadConfigured();
 
             OpenFolderCommand = new RelayCommand(OpenFolder);
             RefreshCommand = new RelayCommand(Refresh, () => _lastOpenedPath != null);
@@ -159,6 +166,24 @@ namespace Lab_Feedback_WPF.ViewModels
             private set => SetField(ref _violationLines, value);
         }
 
+        public string MarkerStatus
+        {
+            get => _markerStatus;
+            set => SetField(ref _markerStatus, value);
+        }
+
+        public string MarkerTooltip
+        {
+            get => _markerTooltip;
+            set => SetField(ref _markerTooltip, value);
+        }
+
+        public Brush MarkerColor
+        {
+            get => _markerColor;
+            set => SetField(ref _markerColor, value);
+        }
+
         // ─── Commands ─────────────────────────────────────────────────────────
 
         public ICommand OpenFolderCommand { get; }
@@ -251,9 +276,12 @@ namespace Lab_Feedback_WPF.ViewModels
 
             GradingVM.LoadResults(submission.Results ?? new LabResults(), _selectedStudent, submission.IsUntested);
 
-            _violations = ViolationCheck.Check(submission.StudentFiles
+            var studentCode = submission.StudentFiles
                 .Where(File.Exists)
-                .Select(f => KeyValuePair.Create(f, File.ReadAllText(f))));
+                .Select(f => KeyValuePair.Create(f, File.ReadAllText(f)))
+                .ToList();
+            _violations = ViolationCheck.Check(studentCode);
+            _markers = _markerSet != null ? MarkerCheck.Check(studentCode, _markerSet) : ViolationReport.Empty;
             ShowViolations();
         }
 
@@ -264,6 +292,7 @@ namespace Lab_Feedback_WPF.ViewModels
             SelectedFileContent = string.Empty;
             IsEmptyState = true;
             _violations = ViolationReport.Empty;
+            _markers = ViolationReport.Empty;
             ShowViolations();
             GradingVM.Clear();
         }
@@ -271,10 +300,18 @@ namespace Lab_Feedback_WPF.ViewModels
         // ─── Violations ───────────────────────────────────────────────────────
 
         private ViolationReport _violations = ViolationReport.Empty;
+        private ViolationReport _markers = ViolationReport.Empty;
 
+        // Markers share the violation line highlight; the status bar keeps them apart.
         private void ShowViolations()
         {
-            ViolationLines = _selectedTab != null ? _violations.LinesIn(_selectedTab.FilePath) : Array.Empty<int>();
+            ViolationLines = _selectedTab != null
+                ? _violations.LinesIn(_selectedTab.FilePath).Union(_markers.LinesIn(_selectedTab.FilePath)).ToList()
+                : Array.Empty<int>();
+            MarkerStatus = _markerSet == null ? (_markerSetError != null ? "Error" : "Off") : _markers.Total.ToString();
+            MarkerTooltip = _markerSetError
+                ?? (_markerSet == null ? $"Set {MarkerSet.PathVariable} to the staff repo's markers.json to check for markers." : _markers.Summary);
+            MarkerColor = _markers.Total > 0 || _markerSetError != null ? Brushes.Orange : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC"));
             ViolationCount = _violations.Total;
             ViolationTooltip = _violations.Summary;
             ViolationColor = _violations.Total switch

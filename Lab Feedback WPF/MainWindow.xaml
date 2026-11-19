@@ -480,6 +480,25 @@
                     </TextBlock.ToolTip>
                 </TextBlock>
 
+                <Separator Style="{StaticResource StatusSeparatorStyle}"/>
+
+                <TextBlock Text="Markers: " Style="{StaticResource StatusLabelStyle}"/>
+                <TextBlock Text="{Binding MarkerStatus}"
+                           Foreground="{Binding MarkerColor}"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           ToolTipService.ShowDuration="30000"
+                           ToolTipService.InitialShowDelay="500">
+                    <TextBlock.ToolTip>
+                        <ToolTip>
+                            <TextBlock Text="{Binding MarkerTooltip}"
+                                       FontFamily="Consolas"
+                                       MaxWidth="600"
+                                       TextWrapping="Wrap"/>
+                        </ToolTip>
+                    </TextBlock.ToolTip>
+                </TextBlock>
+
             </StackPanel>
         </Border>
     </Grid>

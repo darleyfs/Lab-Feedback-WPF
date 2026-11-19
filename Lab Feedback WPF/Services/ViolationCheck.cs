@@ -4,12 +4,18 @@ using System.Text;
 
 namespace Lab_Feedback_WPF.Services
 {
-    /// <summary>The violations found in a submission's student files, by file path.</summary>
+    /// <summary>The violations (or markers) found in a submission's student files, by file path.</summary>
     public class ViolationReport
     {
+        private readonly string _noun;
+
         public IReadOnlyDictionary<string, IReadOnlyList<Violation>> ByFile { get; }
 
-        public ViolationReport(IReadOnlyDictionary<string, IReadOnlyList<Violation>> byFile) => ByFile = byFile;
+        public ViolationReport(IReadOnlyDictionary<string, IReadOnlyList<Violation>> byFile, string noun = "violation")
+        {
+            ByFile = byFile;
+            _noun = noun;
+        }
 
         public static ViolationReport Empty { get; } = new(new Dictionary<string, IReadOnlyList<Violation>>());
 
@@ -28,7 +34,7 @@ namespace Lab_Feedback_WPF.Services
                 if (Total == 0) return string.Empty;
 
                 var sb = new StringBuilder();
-                sb.AppendLine($"Found {Total} violation(s):\n");
+                sb.AppendLine($"Found {Total} {_noun}(s):\n");
                 foreach (var (file, violations) in ByFile.Where(f => f.Value.Count > 0))
                 {
                     sb.AppendLine($"── {Path.GetFileName(file)}");
