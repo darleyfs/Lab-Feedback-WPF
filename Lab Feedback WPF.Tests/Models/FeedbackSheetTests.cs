@@ -101,6 +101,16 @@ public class FeedbackSheetTests
         Assert.AreEqual(ScoreBand.Unscored, FeedbackSheet.Band(0, 0));
     }
 
+    [TestMethod]
+    public void ScoreColor_FollowsGradeFormBands()
+    {
+        Assert.AreEqual("rgb(0, 199, 199)", FeedbackSheet.ScoreColor(10, 10));
+        Assert.AreEqual("rgb(0, 194, 0)", FeedbackSheet.ScoreColor(17.8f, 20));
+        Assert.AreEqual("rgb(206, 134, 0)", FeedbackSheet.ScoreColor(4.5f, 10));
+        Assert.AreEqual("rgb(161, 0, 0)", FeedbackSheet.ScoreColor(4.4f, 10));
+        Assert.AreEqual("rgb(0, 199, 199)", FeedbackSheet.ScoreColor(0, 0));
+    }
+
     // ─── Remarks ──────────────────────────────────────────────────────────────
 
     [TestMethod]
@@ -167,7 +177,7 @@ public class FeedbackSheetTests
         StringAssert.Contains(html, "<span class=\"student\">Ada</span>");
         StringAssert.Contains(html, "<span class=\"intro\"><p>Hi</p></span>");
         StringAssert.Contains(html, "Add: <span style=\"color: rgb(0, 199, 199);\">10.0/10.0</span>");
-        StringAssert.Contains(html, "Divide: <span style=\"color: rgb(161, 0, 0);\">5.0/10.0</span>");
+        StringAssert.Contains(html, "Divide: <span style=\"color: rgb(206, 134, 0);\">5.0/10.0</span>");
         StringAssert.Contains(html, "<strong>-10pts:</strong> Method has multiple returns");
         StringAssert.Contains(html, "Final Grade: <span class=\"grade\">5.0</span>/20");
         Assert.IsFalse(html.Contains("<table"), "No comments means no comment blocks");

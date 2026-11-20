@@ -103,6 +103,19 @@ namespace Lab_Feedback_WPF.Models
             };
         }
 
+        // Colors and cut-offs from the CE07 grade form's excellent/good/fair/poor bands.
+        public static string ScoreColor(float earned, float total)
+        {
+            if (total <= 0) return "rgb(0, 199, 199)";
+            return (earned / total * 100f) switch
+            {
+                >= 100f => "rgb(0, 199, 199)",
+                >= 80f => "rgb(0, 194, 0)",
+                >= 45f => "rgb(206, 134, 0)",
+                _ => "rgb(161, 0, 0)"
+            };
+        }
+
         // ─── Remarks ──────────────────────────────────────────────────────────
 
         public string DefaultRemarks(string firstName)
@@ -148,7 +161,7 @@ namespace Lab_Feedback_WPF.Models
             {
                 var testId = test.Name.ToLower().Replace(" ", "_");
                 var passed = Band(test.GradedPoints, test.PointsTotal) is ScoreBand.Full or ScoreBand.Unscored;
-                var scoreColor = passed ? "rgb(0, 199, 199)" : "rgb(161, 0, 0)";
+                var scoreColor = ScoreColor(test.GradedPoints, test.PointsTotal);
                 var description = string.IsNullOrWhiteSpace(test.Description)
                     ? test.Name : test.Description;
 

@@ -172,7 +172,7 @@ namespace Lab_Feedback_WPF.Services
 
         // Replaces C++ comment content with spaces so positions are preserved.
         // String literals are tracked to avoid treating // or /* inside strings as comments.
-        private string StripComments(string text)
+        internal static string StripComments(string text)
         {
             var result = text.ToCharArray();
             int i = 0;
